@@ -128,6 +128,44 @@ private:
 	Camera& 		m_cam;
 };
 
+/*******************************************************************
+ * \class BinCtrlObj
+ * \brief Control object providing RoperScientific binning interface
+ *******************************************************************/
+
+class BinCtrlObj : public HwBinCtrlObj
+{
+ public:
+	BinCtrlObj(Camera& cam);
+	virtual ~BinCtrlObj();
+
+	virtual void setBin(const Bin& bin);
+	virtual void getBin(Bin& bin);
+	virtual void checkBin(Bin& bin);
+
+ private:
+	Camera& m_cam;
+};
+
+/*******************************************************************
+ * \class RoiCtrlObj
+ * \brief Control object providing RoperScientific roi interface
+ *******************************************************************/
+
+class RoiCtrlObj : public HwRoiCtrlObj
+{
+ public:
+	RoiCtrlObj(Camera& cam);
+	virtual ~RoiCtrlObj();
+
+	virtual void setRoi(const Roi& roi);
+	virtual void getRoi(Roi& roi);
+	virtual void checkRoi(const Roi& set_roi, Roi& hw_roi);
+
+ private:
+	Camera& m_cam;
+};
+
 
 /*******************************************************************
  * \class Interface
@@ -158,6 +196,8 @@ private:
 	DetInfoCtrlObj		m_det_info;
 	BufferCtrlObj		m_buffer;
 	SyncCtrlObj			m_sync;
+	BinCtrlObj     m_bin;
+	RoiCtrlObj     m_roi;
 };
 
 

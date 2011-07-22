@@ -77,6 +77,15 @@ namespace lima
       int       getUseFullFrame();
       void      setUseFullFrame(int val);
 
+      
+      void setBin(const Bin& bin);
+      void getBin(Bin& bin);
+      void checkBin(Bin& bin);
+
+      void getRoi( Roi &roi ) const;
+      void setRoi( const Roi &roi );
+      void checkRoi( const Roi& set_roi, Roi& hw_roi) const;
+
     private:
       class CameraThread : public CmdThread{
       public:
@@ -144,6 +153,9 @@ namespace lima
       int m_trigger_mode;
       int m_int_acq_mode;
  
+      uns16 m_max_width;
+      uns16 m_max_height;
+
       CameraThread m_thread;
      
 

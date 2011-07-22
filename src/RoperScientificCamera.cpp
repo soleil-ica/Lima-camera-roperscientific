@@ -755,6 +755,8 @@ uns16 Camera::getMaxWidth(){
 
   DEB_RETURN() << DEB_VAR1(width);
     
+  m_max_width = width;
+
   return width;
 
 }
@@ -762,7 +764,7 @@ uns16 Camera::getMaxWidth(){
 uns16 Camera::getMaxHeight(){
  
   uns16   height;
-  
+
   DEB_MEMBER_FUNCT();
   if(!cam_sim_mode){  
     pl_get_param( m_handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&height ); 
@@ -771,7 +773,9 @@ uns16 Camera::getMaxHeight(){
   }
 
   DEB_RETURN() << DEB_VAR1(height);
-    
+      
+  m_max_height = height;
+  
   return height;
 
 }
@@ -792,4 +796,81 @@ void Camera::setUseFullFrame(int val){
 
   m_use_full_frame = val;
 
+}
+
+
+void Camera::setBin(const Bin& bin)
+{
+  DEB_MEMBER_FUNCT();
+  DEB_PARAM() << DEB_VAR1(bin);
+
+  m_roi_sbin = bin.getX();
+  m_roi_pbin = bin.getY();
+
+}
+
+void Camera::getBin(Bin& bin)
+{
+
+  DEB_MEMBER_FUNCT();
+
+  Bin tmp_bin(m_roi_sbin,m_roi_pbin);
+
+  bin = tmp_bin;
+ 
+  DEB_RETURN() << DEB_VAR1(bin);
+}
+
+void Camera::checkBin(Bin& bin)
+{
+  
+  DEB_MEMBER_FUNCT();
+  DEB_PARAM() << DEB_VAR1(bin);
+  printf("Teresa: Camera::checkBin \n");
+}
+
+void Camera::getRoi( Roi &roi ) const
+{
+
+  DEB_MEMBER_FUNCT();
+
+  Point point1(m_roi_s1,m_roi_p1);
+  Point point2(m_roi_s2,m_roi_p2);
+  Roi tmp_roi(point1,point2);
+
+  roi = tmp_roi;
+
+  DEB_RETURN() << DEB_VAR1(roi);
+}
+
+void Camera::setRoi( const Roi &roi )
+{  
+  DEB_MEMBER_FUNCT();
+  DEB_PARAM() << DEB_VAR1(roi);
+
+  
+  Point tmp_top = roi.getTopLeft();
+
+  m_roi_s1 = tmp_top.x;
+  m_roi_p1 = tmp_top.y;
+
+  Point tmp_bottom = roi.getBottomRight();
+
+  m_roi_s2 = tmp_bottom.x;
+  m_roi_p2 = tmp_bottom.y;
+ 
+}
+
+void Camera::checkRoi( const Roi &set_roi,Roi &hw_roi ) const
+{
+  
+  DEB_MEMBER_FUNCT();
+  DEB_PARAM() << DEB_VAR2(set_roi, hw_roi);
+  if(set_roi.getSize().getWidth() > m_max_width){
+    throw LIMA_HW_EXC(Error, "roi outside of camera limits");
+  } else if(set_roi.getSize().getHeight() > m_max_height){
+    throw LIMA_HW_EXC(Error, "roi outside of camera limits");
+  } else {
+    hw_roi = set_roi;
+  }
 }
