@@ -848,29 +848,27 @@ void Camera::setRoi( const Roi &roi )
   DEB_MEMBER_FUNCT();
   DEB_PARAM() << DEB_VAR1(roi);
 
-  
-  Point tmp_top = roi.getTopLeft();
-
-  m_roi_s1 = tmp_top.x;
-  m_roi_p1 = tmp_top.y;
-
-  Point tmp_bottom = roi.getBottomRight();
-
-  m_roi_s2 = tmp_bottom.x;
-  m_roi_p2 = tmp_bottom.y;
- 
+  if(!roi.isActive())
+    m_use_full_frame = true;
+  else{
+    Point tmp_top = roi.getTopLeft();
+    
+    m_roi_s1 = tmp_top.x;
+    m_roi_p1 = tmp_top.y;
+    
+    Point tmp_bottom = roi.getBottomRight();
+    
+    m_roi_s2 = tmp_bottom.x;
+    m_roi_p2 = tmp_bottom.y;
+  }
 }
 
 void Camera::checkRoi( const Roi &set_roi,Roi &hw_roi ) const
 {
   
   DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR2(set_roi, hw_roi);
-  if(set_roi.getSize().getWidth() > m_max_width){
-    throw LIMA_HW_EXC(Error, "roi outside of camera limits");
-  } else if(set_roi.getSize().getHeight() > m_max_height){
-    throw LIMA_HW_EXC(Error, "roi outside of camera limits");
-  } else {
-    hw_roi = set_roi;
-  }
+  DEB_PARAM() << DEB_VAR1(set_roi);
+  hw_roi = set_roi;
+  
+  DEB_RETURN() << DEB_VAR1(hw_roi);
 }
