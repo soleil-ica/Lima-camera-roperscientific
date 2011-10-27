@@ -1,7 +1,7 @@
 ROPERSCIENTIFIC
--------
+---------------
 
-.. image:: xxx.jpg
+.. image:: roper-logo.gif
 
 Intoduction
 ```````````
@@ -34,4 +34,4 @@ Installation
 
 
 Configuration
-````````````
+`````````````
