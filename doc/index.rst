@@ -1,4 +1,4 @@
-ROPERSCIENTIFIC
+RoperScientific
 ---------------
 
 .. image:: roper-logo.gif
