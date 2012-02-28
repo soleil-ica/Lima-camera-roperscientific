@@ -59,7 +59,7 @@ namespace lima
 
       int       cam_sim_mode;
 
-      HwBufferCtrlObj* getBufferMgr();
+      HwBufferCtrlObj* getBufferCtrlObj();
 
       float     getTemperature();
       float     getTemperatureSetPoint();
@@ -116,7 +116,7 @@ namespace lima
 
       void 		_allocBuffer();
 
-      SoftBufferCtrlMgr m_buffer_ctrl_mgr;
+      SoftBufferCtrlObj m_buffer_ctrl_obj;
 
 
       bool 		m_cam_connected;

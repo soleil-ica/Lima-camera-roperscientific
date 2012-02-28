@@ -58,43 +58,6 @@ private:
 
 
 /*******************************************************************
- * \class BufferCtrlObj
- * \brief Control object providing RoperScientific buffering interface
- *******************************************************************/
-
-class BufferCtrlObj : public HwBufferCtrlObj
-{
-	DEB_CLASS_NAMESPC(DebModCamera, "BufferCtrlObj", "RoperScientific");
-
-public:
-	BufferCtrlObj(Camera& cam);
-	virtual ~BufferCtrlObj();
-
-	virtual void setFrameDim(const FrameDim& frame_dim);
-	virtual void getFrameDim(      FrameDim& frame_dim);
-
-	virtual void setNbBuffers(int  nb_buffers);
-	virtual void getNbBuffers(int& nb_buffers);
-
-	virtual void setNbConcatFrames(int  nb_concat_frames);
-	virtual void getNbConcatFrames(int& nb_concat_frames);
-
-	virtual void getMaxNbBuffers(int& max_nb_buffers);
-
-	virtual void *getBufferPtr(int buffer_nb, int concat_frame_nb = 0);
-	virtual void *getFramePtr(int acq_frame_nb);
-
-	virtual void getStartTimestamp(Timestamp& start_ts);
-	virtual void getFrameInfo(int acq_frame_nb, HwFrameInfoType& info);
-
-	virtual void registerFrameCallback(HwFrameCallback& frame_cb);
-	virtual void unregisterFrameCallback(HwFrameCallback& frame_cb);
-private:
-	//	BufferCtrlMgr 		m_buffer_mgr;
-	Camera& 		m_cam;
-};
-
-/*******************************************************************
  * \class SyncCtrlObj
  * \brief Control object providing RoperScientific synchronization interface
  *******************************************************************/
@@ -104,7 +67,7 @@ class SyncCtrlObj : public HwSyncCtrlObj
 	DEB_CLASS_NAMESPC(DebModCamera, "SyncCtrlObj", "RoperScientific");
 
 public:
-	SyncCtrlObj(Camera& cam, HwBufferCtrlObj& buffer_ctrl, DetInfoCtrlObj& det);
+	SyncCtrlObj(Camera& cam, DetInfoCtrlObj& det);
 	virtual ~SyncCtrlObj();
 
 	virtual bool checkTrigMode(TrigMode trig_mode);
@@ -194,7 +157,6 @@ private:
 	Camera&		m_cam;
 	CapList 			m_cap_list;
 	DetInfoCtrlObj		m_det_info;
-	BufferCtrlObj		m_buffer;
 	SyncCtrlObj			m_sync;
 	BinCtrlObj     m_bin;
 	RoiCtrlObj     m_roi;

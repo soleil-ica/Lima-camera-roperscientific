@@ -56,7 +56,7 @@ void Camera::CameraThread::execStartAcq()
 	
   setStatus(Exposure);
   
-  StdBufferCbMgr& buffer_mgr = m_cam->m_buffer_ctrl_mgr.getBuffer();
+  StdBufferCbMgr& buffer_mgr = m_cam->m_buffer_ctrl_obj.getBuffer();
   buffer_mgr.setStartTimestamp(Timestamp::now());
   
   int nb_frames = m_cam->m_nb_frames;
@@ -201,7 +201,7 @@ int Camera::CameraThread::getNbAcquiredFrames()
 Camera::Camera(int camNum) :
   m_thread(*this)
 	      //  , m_buffer_cb_mgr(m_buffer_alloc_mgr)
-	      //  , m_buffer_ctrl_mgr(m_buffer_cb_mgr)
+	      //  , m_buffer_ctrl_obj(m_buffer_cb_mgr)
 {
   DEB_CONSTRUCTOR();
 
@@ -288,11 +288,11 @@ Camera::~Camera()
 }
 
 
-HwBufferCtrlObj* Camera::getBufferMgr()
+HwBufferCtrlObj* Camera::getBufferCtrlObj()
 {
   DEB_MEMBER_FUNCT();
 
-  return &m_buffer_ctrl_mgr;
+  return &m_buffer_ctrl_obj;
 }
 
 Camera::Status Camera::getStatus()
