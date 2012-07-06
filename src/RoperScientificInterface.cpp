@@ -2,7 +2,6 @@
 #include "Debug.h"
 #include "RoperScientificInterface.h"
 
-
 using namespace lima;
 using namespace lima::RoperScientific;
 using namespace std;
@@ -10,8 +9,8 @@ using namespace std;
 /*******************************************************************
  * \brief DetInfoCtrlObj constructor
  *******************************************************************/
-DetInfoCtrlObj::DetInfoCtrlObj(Camera& cam)
-				:m_cam(cam)
+DetInfoCtrlObj::DetInfoCtrlObj(Camera& cam) :
+			m_cam(cam)
 {
 	DEB_CONSTRUCTOR();
 }
@@ -39,18 +38,17 @@ void DetInfoCtrlObj::getMaxImageSize(Size& size)
 //-----------------------------------------------------
 void DetInfoCtrlObj::getDetectorImageSize(Size& size)
 {
-  DEB_MEMBER_FUNCT();
-  // get the max image size of the detector
-  
-  uns16 width;
-  uns16 height;
+	DEB_MEMBER_FUNCT();
+	// get the max image size of the detector
 
-  width = m_cam.getMaxWidth();
-  height = m_cam.getMaxHeight();
-    
-  size= Size(width,height);
+	uns16 width;
+	uns16 height;
+
+	width = m_cam.getMaxWidth();
+	height = m_cam.getMaxHeight();
+
+	size = Size(width, height);
 }
-
 
 //-----------------------------------------------------
 //
@@ -58,7 +56,7 @@ void DetInfoCtrlObj::getDetectorImageSize(Size& size)
 void DetInfoCtrlObj::getDefImageType(ImageType& image_type)
 {
 	DEB_MEMBER_FUNCT();
-	getCurrImageType(image_type);
+	m_cam.getImageType(image_type);
 }
 
 //-----------------------------------------------------
@@ -67,7 +65,7 @@ void DetInfoCtrlObj::getDefImageType(ImageType& image_type)
 void DetInfoCtrlObj::getCurrImageType(ImageType& image_type)
 {
 	DEB_MEMBER_FUNCT();
-	image_type= Bpp16; // unsigned short
+	m_cam.getImageType(image_type);
 }
 
 //-----------------------------------------------------
@@ -76,16 +74,13 @@ void DetInfoCtrlObj::getCurrImageType(ImageType& image_type)
 void DetInfoCtrlObj::setCurrImageType(ImageType image_type)
 {
 	DEB_MEMBER_FUNCT();
-	ImageType valid_image_type;
-	getDefImageType(valid_image_type);
-	if (image_type != valid_image_type)
-		THROW_HW_ERROR(Error) << "Cannot change to "  << DEB_VAR2(image_type, valid_image_type);
+	m_cam.setImageType(image_type);
 }
 
 //-----------------------------------------------------
 //
 //-----------------------------------------------------
-void DetInfoCtrlObj::getPixelSize(double& x_size,double& y_size)
+void DetInfoCtrlObj::getPixelSize(double& x_size, double& y_size)
 {
 	DEB_MEMBER_FUNCT();
 	x_size = y_size = 172.0;
@@ -97,7 +92,7 @@ void DetInfoCtrlObj::getPixelSize(double& x_size,double& y_size)
 void DetInfoCtrlObj::getDetectorType(std::string& type)
 {
 	DEB_MEMBER_FUNCT();
-	type  = "RoperScientific";
+	type = "RoperScientific";
 
 }
 
@@ -107,37 +102,33 @@ void DetInfoCtrlObj::getDetectorType(std::string& type)
 void DetInfoCtrlObj::getDetectorModel(std::string& model)
 {
 	DEB_MEMBER_FUNCT();
-	m_cam.getCameraName(model);
+	m_cam.getDetectorModel(model);
 }
 
-
-
-void DetInfoCtrlObj::registerMaxImageSizeCallback(
-						HwMaxImageSizeCallback& cb)
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void DetInfoCtrlObj::registerMaxImageSizeCallback(HwMaxImageSizeCallback& cb)
 {
-	m_mis_cb_gen.registerMaxImageSizeCallback(cb);
+	//m_mis_cb_gen.registerMaxImageSizeCallback(cb);
 }
 
-void DetInfoCtrlObj::unregisterMaxImageSizeCallback(
-						HwMaxImageSizeCallback& cb)
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void DetInfoCtrlObj::unregisterMaxImageSizeCallback(HwMaxImageSizeCallback& cb)
 {
-	m_mis_cb_gen.unregisterMaxImageSizeCallback(cb);
+	//m_mis_cb_gen.unregisterMaxImageSizeCallback(cb);
 }
-
-void DetInfoCtrlObj::
-     MaxImageSizeCallbackGen::setMaxImageSizeCallbackActive(bool cb_active)
-{
-}
-
 
 /*******************************************************************
  * \brief SyncCtrlObj constructor
  *******************************************************************/
-
-SyncCtrlObj::SyncCtrlObj(Camera& cam, DetInfoCtrlObj& det)
-  : HwSyncCtrlObj(), m_cam(cam)
+SyncCtrlObj::SyncCtrlObj(Camera& cam, DetInfoCtrlObj& det) : 
+		HwSyncCtrlObj(), 
+		m_cam(cam)
 {
-  DEB_CONSTRUCTOR();
+	DEB_CONSTRUCTOR();
 }
 
 //-----------------------------------------------------
@@ -155,14 +146,15 @@ bool SyncCtrlObj::checkTrigMode(TrigMode trig_mode)
 	bool valid_mode = false;
 	switch (trig_mode)
 	{
-	case IntTrig:
-	case ExtTrigSingle:
-	case ExtGate:
-		valid_mode = true;
+		case IntTrig:
+		case ExtTrigSingle:
+		case ExtTrigMult:
+		case ExtGate:
+			valid_mode = true;
 		break;
 
-	default:
-		valid_mode = false;
+		default:
+			valid_mode = false;
 	}
 	return valid_mode;
 }
@@ -172,28 +164,12 @@ bool SyncCtrlObj::checkTrigMode(TrigMode trig_mode)
 //-----------------------------------------------------
 void SyncCtrlObj::setTrigMode(TrigMode trig_mode)
 {
-  DEB_MEMBER_FUNCT();
-  
-  int trig;
+	DEB_MEMBER_FUNCT();
+    if (!checkTrigMode(trig_mode))
+        THROW_HW_ERROR(InvalidValue) << "Invalid " << DEB_VAR1(trig_mode);
 
-  switch(trig_mode)
-    {
-    case IntTrig        : trig = 0; // "TIMED_MODE (int. trigger)"
-      break;
-    case IntTrigMult    : trig = 6; // "INT_STROBE_MODE";
-      break;
-    case ExtTrigSingle  : trig = 3; // "TRIGGER_FIRST_MODE (ext. trigger)
-      break;
-    case ExtTrigMult    : trig = 1; // "STROBED_MODE (ext. trigger)
-      break;
-    case ExtGate        : trig = 2; // "BULB_MODE (ext. trigger)"
-      break;
-    case ExtStartStop   : trig = 5; // "VARIABLE_TIMED_MODE (int. trigger)"
-      break;
-    }
-  
-  m_cam.setTrigMode(trig);
-  
+	m_cam.setTrigMode(trig_mode);
+
 }
 
 //-----------------------------------------------------
@@ -201,25 +177,7 @@ void SyncCtrlObj::setTrigMode(TrigMode trig_mode)
 //-----------------------------------------------------
 void SyncCtrlObj::getTrigMode(TrigMode& trig_mode)
 {
-
-  int trig = m_cam.getTrigMode();
-
-  switch(trig)
-    {
-    case 0     :   trig_mode = IntTrig;
-      break;
-    case 6     :   trig_mode = IntTrigMult;
-      break;
-    case 3     :   trig_mode = ExtTrigSingle;
-      break;
-    case 1     :   trig_mode = ExtTrigMult;
-      break;
-    case 2     :   trig_mode = ExtGate;
-      break;
-    case 5     :   trig_mode = ExtStartStop;
-      break;
-    }
-
+	m_cam.getTrigMode(trig_mode);
 }
 
 //-----------------------------------------------------
@@ -227,8 +185,7 @@ void SyncCtrlObj::getTrigMode(TrigMode& trig_mode)
 //-----------------------------------------------------
 void SyncCtrlObj::setExpTime(double exp_time)
 {
-
-	m_cam.setExposure(exp_time);
+	m_cam.setExpTime(exp_time);
 }
 
 //-----------------------------------------------------
@@ -236,7 +193,7 @@ void SyncCtrlObj::setExpTime(double exp_time)
 //-----------------------------------------------------
 void SyncCtrlObj::getExpTime(double& exp_time)
 {
-	exp_time = m_cam.exposure();
+	m_cam.getExpTime(exp_time);
 }
 
 //-----------------------------------------------------
@@ -247,20 +204,28 @@ void SyncCtrlObj::setLatTime(double lat_time)
 	//@TODO
 }
 
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
 void SyncCtrlObj::getLatTime(double& lat_time)
 {
 	//@TODO
 }
 
-
-void SyncCtrlObj::setNbHwFrames(int  nb_frames)
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void SyncCtrlObj::setNbHwFrames(int nb_frames)
 {
-  m_cam.setNbFrames(nb_frames);
+	m_cam.setNbFrames(nb_frames);
 }
 
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
 void SyncCtrlObj::getNbHwFrames(int& nb_frames)
 {
-  m_cam.getNbFrames(nb_frames);
+	m_cam.getNbFrames(nb_frames);
 }
 
 //-----------------------------------------------------
@@ -276,95 +241,108 @@ void SyncCtrlObj::getValidRanges(ValidRangesType& valid_ranges)
 	valid_ranges.max_lat_time = max_time;
 }
 
-//-----------------------------------------------------
-//
-//-----------------------------------------------------
-void SyncCtrlObj:: prepareAcq()
-{
-
-  
-	double exposure =  m_cam.exposure();
-	cout<<"> exposure = "<<exposure<<endl;
-//	double latency = m_det.getMinLatency();
-	//cout<<"> latency = "<<latency<<endl;
-	//	double exposure_period = exposure + latency;
-	//cout<<"> exposure_period = "<<exposure_period<<endl;
-	//	m_cam.setExposurePeriod(exposure_period);
-
-	TrigMode trig_mode;
-	getTrigMode(trig_mode);
-	//	int nb_frames = (trig_mode == IntTrigMult)?1:m_nb_frames;
-	//	m_cam.setNbImagesInSequence(nb_frames);
-
-}
-
-/*******************************************************************
- * \brief BinCtrlObj constructor
- *******************************************************************/
-
-BinCtrlObj::BinCtrlObj(Camera& cam)
-	: m_cam(cam)
-{
-}
-
-BinCtrlObj::~BinCtrlObj()
-{
-}
-
-void BinCtrlObj::setBin(const Bin& bin)
-{
-  m_cam.setBin(bin);
-}
-
-void BinCtrlObj::getBin(Bin& bin)
-{
-  m_cam.getBin(bin);
-}
-
-void BinCtrlObj::checkBin(Bin& bin)
-{
-  m_cam.checkBin(bin);
-}
-
 
 /*******************************************************************
  * \brief RoiCtrlObj constructor
  *******************************************************************/
 
-RoiCtrlObj::RoiCtrlObj(Camera& cam)
-	: m_cam(cam)
+RoiCtrlObj::RoiCtrlObj(Camera& cam) :
+		m_cam(cam)
 {
+    DEB_CONSTRUCTOR();
+    
 }
 
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
 RoiCtrlObj::~RoiCtrlObj()
 {
+    DEB_DESTRUCTOR();
 }
 
-void RoiCtrlObj::setRoi(const Roi& roi)
-{
-  m_cam.setRoi(roi);
-}
-
-void RoiCtrlObj::getRoi(Roi& roi)
-{
-  m_cam.getRoi(roi);
-}
-
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
 void RoiCtrlObj::checkRoi(const Roi& set_roi, Roi& hw_roi)
 {
-  m_cam.checkRoi(set_roi, hw_roi);
+    DEB_MEMBER_FUNCT();
+    m_cam.checkRoi(set_roi, hw_roi);
 }
 
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void RoiCtrlObj::setRoi(const Roi& roi)
+{
+    DEB_MEMBER_FUNCT();
+    Roi real_roi;
+    checkRoi(roi,real_roi);
+    m_cam.setRoi(real_roi);
+
+}
+
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void RoiCtrlObj::getRoi(Roi& roi)
+{
+    DEB_MEMBER_FUNCT();
+    m_cam.getRoi(roi);
+}
+
+/*******************************************************************
+ * \brief BinCtrlObj constructor
+ *******************************************************************/
+BinCtrlObj::BinCtrlObj(Camera &cam) : 
+		m_cam(cam) 
+{
+}
+
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+BinCtrlObj::~BinCtrlObj()
+{
+    DEB_DESTRUCTOR();
+}
+
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void BinCtrlObj::setBin(const Bin& aBin)
+{  
+    DEB_MEMBER_FUNCT();	
+	m_cam.setBin(aBin);
+}
+
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void BinCtrlObj::getBin(Bin &aBin)
+{
+    DEB_MEMBER_FUNCT();	
+	m_cam.getBin(aBin);
+}
+
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void BinCtrlObj::checkBin(Bin &aBin)
+{  
+    DEB_MEMBER_FUNCT();
+	m_cam.checkBin(aBin);
+}
 /*******************************************************************
  * \brief Hw Interface constructor
  *******************************************************************/
 
-Interface::Interface(Camera& cam)
-			: 	m_cam(cam),
-				m_det_info(cam),
-                                m_sync(cam, m_det_info), 
-				m_bin(cam),
-				m_roi(cam)
+Interface::Interface(Camera& cam) :
+		m_cam(cam), 
+		m_det_info(cam), 
+		m_sync(cam, m_det_info), 
+		m_bin(cam), 
+		m_roi(cam)
 {
 	DEB_CONSTRUCTOR();
 
@@ -377,11 +355,11 @@ Interface::Interface(Camera& cam)
 	HwSyncCtrlObj *sync = &m_sync;
 	m_cap_list.push_back(HwCap(sync));
 
+	HwRoiCtrlObj *roi = &m_roi;
+	m_cap_list.push_back(HwCap(roi));
+	
 	HwBinCtrlObj *bin = &m_bin;
 	m_cap_list.push_back(HwCap(bin));
-
-	HwRoiCtrlObj *roi = &m_roi;
-	m_cap_list.push_back(HwCap(roi));	
 
 }
 
@@ -432,7 +410,7 @@ void Interface::prepareAcq()
 {
 	DEB_MEMBER_FUNCT();
 
-	m_cam.prepareAcq();     
+	m_cam.prepareAcq();
 
 }
 
@@ -460,80 +438,48 @@ void Interface::stopAcq()
 void Interface::getStatus(StatusType& status)
 {
 
-  Camera::Status camera_status = m_cam.getStatus();
-  switch (camera_status) {
-  case Camera::Ready:
-    status.acq = AcqReady;
-    status.det = DetIdle;
-    break;
-  case Camera::Exposure:
-    status.det = DetExposure;
-    goto Running;
-  case Camera::Readout:
-    status.det = DetReadout;
-    goto Running;
-  case Camera::Latency:
-    status.det = DetLatency;
-  Running:
-    status.acq = AcqRunning;
-    break;
-  }
-  status.det_mask = DetExposure | DetReadout | DetLatency;
-  
-
-  //	Communication::Status com_status = Communication::OK;
-  //	com_status = m_cam.status();
-  /*
-	if(com_status == Camera::ERROR)
+	Camera::Status camera_status = m_cam.getStatus();
+	switch (camera_status)
 	{
-		status.det = DetFault;
-		status.acq = AcqFault;		
-	}
-	else
-	{
-		if(com_status != Communication::OK)
-		{
-			status.det = DetExposure;
-			status.acq = AcqRunning;		
-		}
-		else
-		{
+		case Camera::Ready:
+			status.acq = AcqReady;
 			status.det = DetIdle;
-            int lastAcquiredFrame = -1;//self.__buffer.getLastAcquiredFrame()
-            int requestNbFrame = -1;
-			m_sync.getNbHwFrames(requestNbFrame);
-			if(lastAcquiredFrame >= 0 && lastAcquiredFrame == (requestNbFrame - 1))
-				status.acq = AcqReady;
-			else
-				status.acq = AcqRunning;
-		}
+		break;
+		case Camera::Exposure:
+			status.det = DetExposure;
+			goto Running;
+		case Camera::Readout:
+			status.det = DetReadout;
+			goto Running;
+		case Camera::Latency:
+			status.det = DetLatency;
+			Running: status.acq = AcqRunning;
+		break;
 	}
-	status.det_mask = DetExposure|DetFault;
-  */
+	status.det_mask = DetExposure | DetReadout | DetLatency;
 }
 
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
 int Interface::getNbAcquiredFrames()
 {
-  DEB_MEMBER_FUNCT();
+	DEB_MEMBER_FUNCT();
 
-  return getNbHwAcquiredFrames();
+	return getNbHwAcquiredFrames();
 }
-
-
 
 //-----------------------------------------------------
 //
 //-----------------------------------------------------
 int Interface::getNbHwAcquiredFrames()
 {
-  DEB_MEMBER_FUNCT(); 
-  int aNbAcquiredFrames;
+	DEB_MEMBER_FUNCT();
+	int aNbAcquiredFrames;
 
-  aNbAcquiredFrames = m_cam.getNbAcquiredFrames();
-  
-  DEB_RETURN() << DEB_VAR1(aNbAcquiredFrames);
-  return aNbAcquiredFrames;
+	aNbAcquiredFrames = m_cam.getNbAcquiredFrames();
+
+	DEB_RETURN() << DEB_VAR1(aNbAcquiredFrames);
+	return aNbAcquiredFrames;
 }
-
-
-
+//-----------------------------------------------------

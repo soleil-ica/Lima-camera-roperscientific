@@ -1,874 +1,1014 @@
 #include <cstdlib>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+
+#if ! defined (WIN32)
+#  include <sys/socket.h>
+# include <netinet/in.h>
+# include <arpa/inet.h> 
+# include <netdb.h>
+#else
+# include <winsock2.h>
+#include <unistd.h>
+#endif
 
 #include "Exceptions.h"
+
 
 #include "RoperScientificCamera.h"
 
 using namespace lima;
 using namespace lima::RoperScientific;
 
-
+//---------------------------------------------------------------------------------------
+//! Camera::CameraThread::CameraThread()
+//---------------------------------------------------------------------------------------
 Camera::CameraThread::CameraThread(Camera& cam)
-	: m_cam(&cam)
+		: m_cam(&cam)
 {
+	DEB_MEMBER_FUNCT();	
+	DEB_TRACE()<<"CameraThread::CameraThread - BEGIN";	
 	m_cam->m_acq_frame_nb = 0;
 	m_force_stop = false;
+	DEB_TRACE()<<"CameraThread::CameraThread - END";	
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::CameraThread::start()
+//---------------------------------------------------------------------------------------
 void Camera::CameraThread::start()
 {
-  CmdThread::start();
-  waitStatus(Ready);
-  
+	DEB_MEMBER_FUNCT();	
+	DEB_TRACE()<<"CameraThread::start - BEGIN";	
+	CmdThread::start();
+	waitStatus(Ready);
+	DEB_TRACE()<<"CameraThread::start - END";		
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::CameraThread::init()
+//---------------------------------------------------------------------------------------
 void Camera::CameraThread::init()
 {
+	DEB_MEMBER_FUNCT();	
+	DEB_TRACE()<<"CameraThread::init - BEGIN";		
 	setStatus(Ready);
+	DEB_TRACE()<<"CameraThread::init - END";		
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::CameraThread::execCmd()
+//---------------------------------------------------------------------------------------
 void Camera::CameraThread::execCmd(int cmd)
 {
-  int status = getStatus();
-  switch (cmd) {
-  case StartAcq:
-    if (status != Ready)
-      throw LIMA_HW_EXC(InvalidValue,  "Not Ready to StartAcq");
-    execStartAcq();
-    break;
-  }
+	DEB_MEMBER_FUNCT();	
+	DEB_TRACE()<<"CameraThread::execCmd - BEGIN";		
+	int status = getStatus();
+	switch (cmd)
+	{
+		case StartAcq:
+			if (status != Ready)
+				throw LIMA_HW_EXC(InvalidValue, "Not Ready to StartAcq");
+			execStartAcq();
+		break;
+	}
+	DEB_TRACE()<<"CameraThread::execCmd - END";		
 }
 
-
-
-
+//---------------------------------------------------------------------------------------
+//! Camera::CameraThread::execStartAcq()
+//---------------------------------------------------------------------------------------
 void Camera::CameraThread::execStartAcq()
 {
 
-  int16 status;
-  uns32 not_needed;
-  int acq_frame_nb;
-  void *f_address;
+	DEB_MEMBER_FUNCT();
+	int16 status;
+	uns32 not_needed;
+	int acq_frame_nb;
+	void *f_address;
+	DEB_TRACE()<<"CameraThread::execStartAcq - BEGIN";
+	setStatus(Exposure);
 
+	StdBufferCbMgr& buffer_mgr = m_cam->m_buffer_ctrl_obj.getBuffer();
+	buffer_mgr.setStartTimestamp(Timestamp::now());
+
+	int nb_frames = m_cam->m_nb_frames;
+	int& frame_nb = m_cam->m_acq_frame_nb;
+	int buffer_nb, concat_frame_nb;
+	m_cam->m_acq_frame_nb = 0;
 	
-  setStatus(Exposure);
-  
-  StdBufferCbMgr& buffer_mgr = m_cam->m_buffer_ctrl_obj.getBuffer();
-  buffer_mgr.setStartTimestamp(Timestamp::now());
-  
-  int nb_frames = m_cam->m_nb_frames;
-  int& frame_nb = m_cam->m_acq_frame_nb;
+	acq_frame_nb = 0;
+	bool continueAcq = true;
+	while(continueAcq && (!m_cam->m_nb_frames || m_cam->m_acq_frame_nb < m_cam->m_nb_frames))
+	{		
+		DEB_TRACE()<<"Start the sequence according to acquisition mode.";			
+		if (m_cam->m_int_acq_mode == 0)
+		{
+			DEB_TRACE()<<"Acquisition mode : STANDARD.";
 
+			DEB_TRACE()<<"start acquisition.";
+			if(pl_exp_start_seq(m_cam->m_handle, m_cam->m_frame) == PV_FAIL)
+			{
+				char Err[ERROR_MSG_LEN];
+				pl_error_message(pl_error_code(), Err);
+				THROW_HW_ERROR(Error) << Err;				
+			}
 
-  m_cam->m_acq_frame_nb = 0;
-  
-  acq_frame_nb = 0;
+			/* wait for data or error */
+			DEB_TRACE()<<"Wait for data or error ...";
+			while(pl_exp_check_status(m_cam->m_handle, &status, &not_needed) && (status != READOUT_COMPLETE && status != READOUT_FAILED))
+			{
+				/* Ugly, but work. TODO sooner : use something like yield();*/
+				usleep(9000);
+				/* Ugly, but work. TODO sooner : must use something like this mWaitCond.signal(); */
+				if (m_force_stop)
+					goto ForceTheStop;
+			}
 
-  while( nb_frames ) {
-    
-    if(m_force_stop){
-	m_force_stop = false;
+			/* Check Error Codes */
+			if (status == READOUT_FAILED)
+			{
+				DEB_TRACE()<<"Status is FAIL.";
+				char Err[ERROR_MSG_LEN];
+				pl_error_message(pl_error_code(), Err);
+				setStatus(Fault);
+				continueAcq = false;
+				THROW_HW_ERROR(Error) << Err;
+				break;
+			}
+		}
+		else if (m_cam->m_int_acq_mode == 1)
+		{
+			DEB_TRACE()<<"Acquisition mode : CONTINUOUS.";
+			DEB_TRACE()<<"start acquisition & Wait for data or error ....";
+			while (pl_exp_check_cont_status(m_cam->m_handle, &status, &not_needed, &not_needed) && (status != READOUT_COMPLETE && status != READOUT_FAILED))
+			{
+				/* Ugly, but work. TODO sooner : use something like yield();*/
+				usleep(9000);
+				/* Ugly, but work. TODO sooner : must use something like this mWaitCond.signal(); */
+				if (m_force_stop)
+					goto ForceTheStop;
+			}
+
+			/* Check Error Codes */
+			if (status == READOUT_FAILED)
+			{
+				DEB_TRACE()<<"Status is FAIL.";					
+				char Err[ERROR_MSG_LEN];
+				pl_error_message(pl_error_code(), Err);
+				setStatus(Fault);
+				continueAcq = false;					
+				THROW_HW_ERROR(Error) << Err;
+				break;
+			}
+			if (pl_exp_get_oldest_frame(m_cam->m_handle, &f_address))
+			{
+				m_cam->m_frame = (uns16*) f_address;
+			}
+		}
+		else if (m_cam->m_int_acq_mode == 2)
+		{
+
+			DEB_TRACE()<<"Acquisition mode : FOCUS.";
+			DEB_TRACE()<<"start acquisition & Wait for data or error ....";
+			while (pl_exp_check_cont_status(m_cam->m_handle, &status, &not_needed, &not_needed) && (status != READOUT_COMPLETE && status != READOUT_FAILED))
+			{
+				/* Ugly, but work. TODO sooner : use something like yield();*/
+				usleep(9000);
+				/* Ugly, but work. TODO sooner : must use something like this mWaitCond.signal(); */
+				if (m_force_stop)
+					goto ForceTheStop;
+			}
+
+			/* Check Error Codes */
+			if (status == READOUT_FAILED)
+			{
+				DEB_TRACE()<<"Status is FAIL.";					
+				char Err[ERROR_MSG_LEN];
+				pl_error_message(pl_error_code(), Err);
+				setStatus(Fault);
+				continueAcq = false;					
+				THROW_HW_ERROR(Error) << Err;
+				break;
+			}
+			if (pl_exp_get_latest_frame(m_cam->m_handle, &f_address))
+			{
+				m_cam->m_frame = (uns16*) f_address;
+			}
+		}
+
+		ForceTheStop:
+		if (m_force_stop)
+		{
+			continueAcq = false;
+			m_force_stop = false;
+			setStatus(Ready);
+			break;
+		}
+		
+		DEB_TRACE()<<"Prepare the Frame ptr - "<< DEB_VAR1(frame_nb);
+		setStatus(Readout);
+		
+		DEB_TRACE()<<"copy data into the Frame ptr - "<< DEB_VAR1(m_cam->m_size);		
+		void *ptr = buffer_mgr.getFrameBufferPtr(frame_nb);
+		memcpy((unsigned short *)ptr, (unsigned short *)m_cam->m_frame, m_cam->m_size); //we need a nb of BYTES .
+		buffer_mgr.setStartTimestamp(Timestamp::now());
+		
+		DEB_TRACE()<<"Declare a new Frame Ready.";		
+		HwFrameInfoType frame_info;
+		frame_info.acq_frame_nb = acq_frame_nb;
+		buffer_mgr.newFrameReady(frame_info);
+
+		acq_frame_nb++;
+		nb_frames--;
+		m_cam->m_acq_frame_nb = acq_frame_nb;	
+	} /* End while */
+
+	DEB_TRACE()<<"Stop the sequence according to acquisition mode.";
+	if (m_cam->m_int_acq_mode == 0)
+	{
+		DEB_TRACE()<<"Acquisition mode : STANDARD.";			
+		/* Finish the sequence */
+		DEB_TRACE()<<"Finish the sequence.";		
+		pl_exp_finish_seq(m_cam->m_handle, m_cam->m_frame, 0);
+	}
+	else
+	{
+		DEB_TRACE()<<"Acquisition mode : CONTINUOUS.";
+		/* Stop the acquisition */
+		DEB_TRACE()<<"Stop the acquisition.";
+		pl_exp_stop_cont(m_cam->m_handle, CCS_HALT);
+
+		/* Finish the sequence */
+		DEB_TRACE()<<"Finish the sequence.";		
+		pl_exp_finish_seq(m_cam->m_handle, m_cam->m_pr_buffer, 0);
+		if (m_cam->m_pr_buffer)
+		{
+			delete[] m_cam->m_pr_buffer;
+			m_cam->m_pr_buffer = 0;
+		}
+	}
+
+	/*Uninit the sequence */
+	DEB_TRACE()<<"Uninit the sequence.";		
+	pl_exp_uninit_seq();
+
+	if (m_cam->m_frame)
+	{
+		delete[] m_cam->m_frame;
+		m_cam->m_frame = 0;
+	}
+
 	setStatus(Ready);
-	goto stop;
-    }
-    
-    if( !m_cam->cam_sim_mode ){
-    
-      if(m_cam->m_int_acq_mode == 0){
-	pl_exp_start_seq(m_cam->m_handle, m_cam->m_frame );
-	
-	/* wait for data or error */
-	while( pl_exp_check_status( m_cam->m_handle, &status, &not_needed ) && 
-	       (status != READOUT_COMPLETE && status != READOUT_FAILED) ){
-	  usleep(9000);
-	}
-      
-	/* Check Error Codes */
-	if( status == READOUT_FAILED ) {    
-	  m_cam->get_camera_error();
-	  throw LIMA_HW_EXC(Error, "Data collection error");
-	  break;
-	}
-      } else if (m_cam->m_int_acq_mode == 1){
-	
-	while( pl_exp_check_cont_status( m_cam->m_handle, &status, &not_needed, &not_needed ) && 
-	       (status != READOUT_COMPLETE && status != READOUT_FAILED) ){
-	  usleep(9000);
-	}
-      
-	/* Check Error Codes */
-	if( status == READOUT_FAILED ) {   
-	  m_cam->get_camera_error();
-	  throw LIMA_HW_EXC(Error, "Data collection error");
-	  break;
-	}
-	if ( pl_exp_get_oldest_frame( m_cam->m_handle, &f_address )) {
-	  m_cam->m_frame = (uns16*)f_address;
-	}
-      } else if (m_cam->m_int_acq_mode == 2){
-	
-	while( pl_exp_check_cont_status( m_cam->m_handle, &status, &not_needed, &not_needed ) && 
-	       (status != READOUT_COMPLETE && status != READOUT_FAILED) ){
-	  usleep(9000);
-	}
-      
-	/* Check Error Codes */
-	if( status == READOUT_FAILED ) {   
-	  m_cam->get_camera_error();
-	  throw LIMA_HW_EXC(Error, "Data collection error");
-	  break;
-	}
-	if ( pl_exp_get_latest_frame(  m_cam->m_handle, &f_address )) {
-	   m_cam->m_frame = (uns16*)f_address;
-	}
-      }
-     
-    }else{
-      double req_time;
-      req_time = m_cam->m_exposure;
-      if (req_time > 0) {
-	usleep(long(req_time * 1e6));
-      }
-      for(int i = 0; i < m_cam->m_size/sizeof(uns16); i++){
-	m_cam->m_frame[i]= i;
-      }
-    }
-
- 
-    setStatus(Readout);
-    
-
-     unsigned short *ptr = (unsigned short*)buffer_mgr.getFrameBufferPtr(frame_nb);
-     memcpy(ptr,m_cam->m_frame,m_cam->m_size/sizeof(uns16)+1);
-    
-
-
-    buffer_mgr.setStartTimestamp(Timestamp::now());
-
-    HwFrameInfoType frame_info;
-    frame_info.acq_frame_nb = acq_frame_nb;
-    buffer_mgr.newFrameReady(frame_info); 
-   
-    m_cam->m_acq_frame_nb = acq_frame_nb;
-
-    acq_frame_nb++; 
-    nb_frames--;
-
-
-  } /* End while */
-
- stop:
-  if(!m_cam->cam_sim_mode){   
-
-    if(m_cam->m_int_acq_mode == 0){
-      /* Finish the sequence */
-      
-      pl_exp_finish_seq(m_cam->m_handle, m_cam->m_frame, 0);
-    }  else {
-
-      /* Stop the acquisition */
-      
-      pl_exp_stop_cont(m_cam->m_handle,CCS_HALT);
-
-      /* Finish the sequence */
-      pl_exp_finish_seq(m_cam->m_handle, m_cam->m_pr_buffer, 0); 
-      //      if( m_cam->m_pr_buffer ) free( m_cam->m_pr_buffer );
-    
-    }
-  
-    /*Uninit the sequence */
-    
-    pl_exp_uninit_seq();
-    
-  }
-  
-  if( m_cam->m_frame ) free( m_cam->m_frame );
-
-
-  setStatus(Ready);
+	DEB_TRACE()<<"CameraThread::execStartAcq - END";	
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::CameraThread::getNbAcquiredFrames()
+//---------------------------------------------------------------------------------------
 int Camera::CameraThread::getNbAcquiredFrames()
 {
-  return m_cam->m_acq_frame_nb;
+	return m_cam->m_acq_frame_nb;
 }
-
-
-
-Camera::Camera(int camNum) :
-  m_thread(*this)
-	      //  , m_buffer_cb_mgr(m_buffer_alloc_mgr)
-	      //  , m_buffer_ctrl_obj(m_buffer_cb_mgr)
+	
+//---------------------------------------------------------------------------------------
+//! Camera::Camera()
+//---------------------------------------------------------------------------------------
+Camera::Camera(int camNum):
+	m_thread(*this),
+	m_roi_s1(0),
+	m_roi_s2(2047),
+	m_roi_sbin(1),
+	m_roi_p1(0),
+	m_roi_p2(2047),
+	m_roi_pbin(1),
+	m_size(2048*2048*2),
+	m_nb_frames(1),
+	m_exposure(1.0),
+	m_trigger_mode(TIMED_MODE),
+	m_int_acq_mode(0)
 {
-  DEB_CONSTRUCTOR();
+	DEB_CONSTRUCTOR();
+	DEB_TRACE()<<"Camera::Camera";
+	int16 param;
+	float tmp_temp;
+		
+	/*close pvcam library in case of !! */
+	DEB_TRACE()<<"close pvcam library in case of !";		
+	pl_pvcam_uninit();
 
-  int16 param;
-  float tmp_temp;
+	/* Open pvcam library */
+	DEB_TRACE()<<"Open pvcam library.";		
+	if (pl_pvcam_init() == PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
 
+	/* Get camera name */
+	DEB_TRACE()<<"Get camera name.";
+	if (pl_cam_get_name(camNum, m_name) == PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
 
-  cam_sim_mode = 1;
+	/* Open comunication with the camera */
+	DEB_TRACE()<<"Open comunication with the camera.";
+	if (pl_cam_open(m_name, &m_handle, OPEN_EXCLUSIVE) == PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
 
-  if(! cam_sim_mode ){
+	/* Get camera max width */
+	DEB_TRACE()<<"Get camera max width.";
+	if(pl_get_param(m_handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *) &m_max_width)==PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
 
-    /* Open pvcam library */
-    pl_pvcam_uninit();
-    
-    if( !pl_pvcam_init() ) {
-      throw LIMA_HW_EXC(Error, "could not initialize pvcam lib");
-    } 
-    
-    /* Get camera name */
-    
-    if( !pl_cam_get_name( camNum, m_camera_name ) ) {
-      get_camera_error(); 
-      throw LIMA_HW_EXC(Error, "failed to get Roper Scientific camera name");
-    }
-    /* Establish comunication with the camera */
-    
-    int err;
-    if( err = pl_cam_open(m_camera_name, &m_handle, OPEN_EXCLUSIVE ) ) {
-      printf( "camera %s open\n");
-    } else { 
-      get_camera_error();
-      throw LIMA_HW_EXC(Error, "failed to open camera");
-    }
-    /* Read current temperature and set the temperature set point */
-    
-    pl_get_param( m_handle, PARAM_TEMP, ATTR_CURRENT, (void *)&param );
-    tmp_temp = param/100; 
-    
-    if( (tmp_temp < 10) ){
-      param = (int16) (-40.*100);
-    } else {
-      param = (int16) (25.*100);
-    }
-    
-    pl_set_param(m_handle, PARAM_TEMP_SETPOINT, (void *)&param );  
-    
-    get_camera_error();
-  } else {
-    strcpy(m_camera_name, "Simu RoperScientific");
-  }
+	/* Get camera max height */
+	DEB_TRACE()<<"Get camera max height.";
+	if(pl_get_param(m_handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *) &m_max_height)==PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
 
+	/* Get camera pixel depth */
+	DEB_TRACE()<<"Get camera pixel depth.";
+	if(pl_get_param(m_handle, PARAM_BIT_DEPTH, ATTR_CURRENT, &m_depth)==PV_FAIL)
+	{			
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
+	
+	/*default EXPOSURE unit is the microsec */
+	DEB_TRACE()<<"Set EXPOSURE unit to microsec.";
+	int16 param2 = EXP_RES_ONE_MICROSEC;
+	if(pl_set_param(m_handle, PARAM_EXP_RES_INDEX, (void *) &param2) == PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
 
-  m_camera_busy = 0;
-
-  m_thread.start();
-
-
+	m_thread.start();
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::~Camera()
+//---------------------------------------------------------------------------------------
 Camera::~Camera()
 {
-  DEB_DESTRUCTOR();
-  
-  if(! cam_sim_mode ){
-    pl_cam_close( m_handle );
-    
-    pl_pvcam_uninit();
-  }
+	DEB_DESTRUCTOR();
+	DEB_TRACE()<<"Camera::~Camera";	
+	stopAcq();
 
-  /*
-  if(m_cam_connected)
-    {
-      PvCommandRun(m_handle,"AcquisitionStop");
-      PvCaptureEnd(m_handle);
-      PvCameraClose(m_handle);
-    }
-  PvUnInitialize();
-
-  */
-  //  if(m_frame[0].ImageBuffer)
-  //   free(m_frame[0].ImageBuffer);
-  //  if(m_frame[1].ImageBuffer)
-  //   free(m_frame[1].ImageBuffer);
+	DEB_TRACE()<<"Close communication with the camera.";
+	pl_cam_close(m_handle);
+	DEB_TRACE()<<"close pvcam library.";
+	pl_pvcam_uninit();
 }
 
-
-HwBufferCtrlObj* Camera::getBufferCtrlObj()
-{
-  DEB_MEMBER_FUNCT();
-
-  return &m_buffer_ctrl_obj;
-}
-
+//---------------------------------------------------------------------------------------
+//! Camera::getStatus()
+//---------------------------------------------------------------------------------------
 Camera::Status Camera::getStatus()
 {
-  DEB_MEMBER_FUNCT();
+	DEB_MEMBER_FUNCT();
 
-  int thread_status = m_thread.getStatus();
+	int thread_status = m_thread.getStatus();
 
-  DEB_RETURN() << DEB_VAR1(thread_status);
-  
-  switch (thread_status) {
-  case CameraThread::Ready:
-    return Camera::Ready;
-  case CameraThread::Exposure:
-    return Camera::Exposure;
-  case CameraThread::Readout:
-    return Camera::Readout;
-  case CameraThread::Latency:
-    return Camera::Latency;
-  default:
-    throw LIMA_HW_EXC(Error, "Invalid thread status");
-  }
+	DEB_RETURN() << DEB_VAR1(thread_status);
+
+	switch (thread_status)
+	{
+		case CameraThread::Ready:
+			return Camera::Ready;
+		case CameraThread::Exposure:
+			return Camera::Exposure;
+		case CameraThread::Readout:
+			return Camera::Readout;
+		case CameraThread::Latency:
+			return Camera::Latency;
+		default:
+			throw LIMA_HW_EXC(Error, "Invalid thread status");
+	}
 }
 
-
+//---------------------------------------------------------------------------------------
+//! Camera::setNbFrames()
+//---------------------------------------------------------------------------------------
 void Camera::setNbFrames(int nb_frames)
 {
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setNbFrames - "<<DEB_VAR1(nb_frames);	
 	if (nb_frames < 0)
 		throw LIMA_HW_EXC(InvalidValue, "Invalid nb of frames");
 
 	m_nb_frames = nb_frames;
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::getNbFrames()
+//---------------------------------------------------------------------------------------
 void Camera::getNbFrames(int& nb_frames)
 {
-  DEB_MEMBER_FUNCT();
-  DEB_RETURN() << DEB_VAR1(m_nb_frames);
-  
-  nb_frames = m_nb_frames;
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getNbFrames";	
+	DEB_RETURN() << DEB_VAR1(m_nb_frames);
+
+	nb_frames = m_nb_frames;
 }
 
-/** @brief test if the camera is monochrome
- */
-bool Camera::isMonochrome() const
+//---------------------------------------------------------------------------------------
+//! Camera::getDetectorModel()
+//---------------------------------------------------------------------------------------
+void Camera::getDetectorModel(std::string& model)
 {
-  DEB_MEMBER_FUNCT();
-
-  return !strcmp(m_sensor_type,"Mono");
+	DEB_MEMBER_FUNCT();
+	DEB_RETURN() << DEB_VAR1(m_name);
+	model = m_name;
 }
 
-VideoMode Camera::getVideoMode() const
+//---------------------------------------------------------------------------------------
+//! Camera::CameraThread::getNbAcquiredFrames()
+//---------------------------------------------------------------------------------------
+int Camera::getNbAcquiredFrames()
 {
-  DEB_MEMBER_FUNCT();
-  DEB_RETURN() << DEB_VAR1(m_video_mode);
-
-  return m_video_mode;
+	return m_acq_frame_nb;
 }
 
-void Camera::getCameraName(std::string& name)
-{
-  DEB_MEMBER_FUNCT();
-  DEB_RETURN() << DEB_VAR1(m_camera_name);
-
-  name = m_camera_name;
-}
-void Camera::setVideoMode(VideoMode aMode)
-{
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(aMode);
-
-  /*
-  ImageType anImageType;
-  tPvErr error;
-  switch(aMode)
-    {
-    case Y8:
-      error = PvAttrEnumSet(m_handle, "PixelFormat", "Mono8");
-      anImageType = Bpp8;
-      break;
-    case Y16:
-      error = PvAttrEnumSet(m_handle, "PixelFormat", "Mono16");
-      anImageType = Bpp16;
-      break;
-    case BAYER_RG8:
-      error = PvAttrEnumSet(m_handle, "PixelFormat", "Bayer8");
-      anImageType = Bpp8;
-      break;
-    case BAYER_RG16:
-      error = PvAttrEnumSet(m_handle, "PixelFormat", "Bayer16");
-      anImageType = Bpp16;
-      break;
-    default:
-      throw LIMA_HW_EXC(InvalidValue,"This video mode is not managed!");
-    }
-  
-  if(error)
-    throw LIMA_HW_EXC(Error,"Can't change video mode");
-  */
-  //  m_video_mode = aMode;
-  //  maxImageSizeChanged(Size(m_maxwidth,m_maxheight),anImageType);
-}
-
-
+//---------------------------------------------------------------------------------------
+//! Camera::prepareAcq()
+//---------------------------------------------------------------------------------------
 void Camera::prepareAcq()
 {
-  DEB_MEMBER_FUNCT();
+	DEB_MEMBER_FUNCT();
+
+	rgn_type region = { 0,2047, 1, 0, 2047, 1 };
+
+	DEB_TRACE()<<"Define Bin/Roi parameters.";	
+	setBinRoiParameters(&region);
 
 
-  rgn_type region={ 0, 511, 1, 0, 511, 1};
-  
-  if(m_use_full_frame){
-    setFullFrame(&region);
-  } else {
-    setROI(&region);
-  }
+	/* Init a sequence  */
+	DEB_TRACE()<<"Init the sequence according to acquisition mode.";	
+	if (pl_exp_init_seq() == PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;		
+	}
 
-  /* Init a sequence  */
+	if (m_int_acq_mode == 0)
+	{
+		DEB_TRACE()<<"Acquisition mode : STANDARD.";
+		/* Set the region, exposure mode and exposure time.			  
+		 Second argument (exp_total) -> Number of images to take.
+		 size is the returned number of bytes in the pixel stream */
+		DEB_TRACE()<<"Setup acquisition.";
+		if (pl_exp_setup_seq(m_handle, 1, 1, &region, m_trigger_mode, (long) m_exposure, &m_size) == PV_FAIL)
+		{
+			char Err[ERROR_MSG_LEN];
+			pl_error_message(pl_error_code(), Err);
+			THROW_HW_ERROR(Error) << Err;
+		}
 
-  if(! cam_sim_mode ){
-    if( pl_exp_init_seq() ) {
-      printf( "experiment sequence initialized\n" );
-    } else {
-      get_camera_error();
-      throw LIMA_HW_EXC(Error, "sequence initialization failed");
-    }
-  
-    
-    if(m_int_acq_mode == 0){
-      /* Set the region, exposure mode and exposure time.
-	 Second argument (exp_total) -> Number of images to take.
-	 size is the returned number of bytes in the pixel stream */
-      
-      if( pl_exp_setup_seq( m_handle, 1, 1, &region,m_trigger_mode, (long)m_exposure, &m_size ) ) {
-	printf( "setup sequence OK\n" );
-	printf( "frame size = %i\n", m_size );
-      } else {
-	get_camera_error();
-	throw LIMA_HW_EXC(Error, "sequence setup failed");
-      }
-    } else if(m_int_acq_mode == 1){
-      if( pl_exp_setup_cont( m_handle, 1, &region, m_trigger_mode, (long)m_exposure, &m_size, CIRC_NO_OVERWRITE ) ) {
-      } else {
-	get_camera_error();
-	throw LIMA_HW_EXC(Error, "continuous setup failed");
-      }
-    } else if (m_int_acq_mode == 2){
-      if( pl_exp_setup_cont( m_handle, 1, &region, m_trigger_mode, (long)m_exposure, &m_size, CIRC_OVERWRITE ) ) {
-      } else {
-	get_camera_error();
-	throw LIMA_HW_EXC(Error, "continuous setup failed");
-      }
-    }	
+		DEB_TRACE()<<"Frame size in Bytes - "<< DEB_VAR1(m_size);
+	}
+	else if (m_int_acq_mode == 1)
+	{
+		DEB_TRACE()<<"Acquisition mode : CONTINUOUS.";
+		DEB_TRACE()<<"Setup acquisition.";
+		if (pl_exp_setup_cont(m_handle, 1, &region, m_trigger_mode, (long) m_exposure, &m_size, CIRC_NO_OVERWRITE)==PV_FAIL)
+		{
+			char Err[ERROR_MSG_LEN];
+			pl_error_message(pl_error_code(), Err);
+			THROW_HW_ERROR(Error) << Err;
+		}
+	}
+	else if (m_int_acq_mode == 2)
+	{
+		DEB_TRACE()<<"Acquisition mode : FOCUS.";
+		DEB_TRACE()<<"Setup acquisition.";
+		if (pl_exp_setup_cont(m_handle, 1, &region, m_trigger_mode, (long) m_exposure, &m_size, CIRC_OVERWRITE)==PV_FAIL)
+		{			
+			char Err[ERROR_MSG_LEN];
+			pl_error_message(pl_error_code(), Err);
+			THROW_HW_ERROR(Error) << Err;
+		}
+	}
 
-  } else {
-    //    size = 250;
-    m_size = 1024*1024;
-  }
-  
-  if(m_int_acq_mode != 0){
-    m_pr_buffer = (unsigned short*)malloc( m_size * 2 * 3 ); // set up a circular buffer of 3 frames
-    pl_exp_start_cont(m_handle, m_pr_buffer, m_size );
-
-  }
-   
-  m_frame = (unsigned short*)malloc( m_size * 2); // Size of memory in bytes
-  
-  if( !m_frame ) {
-    get_camera_error();
-    throw LIMA_HW_EXC(Error, "memory allocation error");
-  } else {
-    printf( "frame of data at address %x\n", m_frame );
-  }
-
-
+	/*Define circular buffer for acquisitions CONTINUOUS & FOCUS*/
+	if (m_int_acq_mode != 0)
+	{
+		DEB_TRACE()<<"Allocate a circular buffer.";	
+		m_pr_buffer = new unsigned short[(m_size/2)*3]; // set up a circular buffer of 3 frames. we need a nb of pixels => factor (1/2)
+		pl_exp_start_cont(m_handle, m_pr_buffer, m_size);
+	}
+	
+	try
+	{
+		DEB_TRACE() << "Allocate Memory for the Frame.";
+		m_frame = new unsigned short[(m_size/2)]; // we need a nb of pixels => factor (1/2)
+	}
+	catch (std::exception& e)
+	{
+		DEB_TRACE()<<"Allocating memory is FAIL.";
+		THROW_HW_ERROR(Error) << e.what();
+	}
 }
 
-/** @brief start the acquisition.
-    must have m_video != NULL and previously call _allocBuffer
-*/
+//---------------------------------------------------------------------------------------
+//! Camera::startAcq()
+//---------------------------------------------------------------------------------------
 void Camera::startAcq()
 {
-  DEB_MEMBER_FUNCT();
-  
-  m_thread.m_force_stop = false;
-  m_continue_acq = true;
-  m_acq_frame_nb = 0;
+	DEB_MEMBER_FUNCT();
 
-  m_camera_busy = 1;
+	m_thread.m_force_stop = false;
+	m_acq_frame_nb = 0;
 
+	int16 status;
+	uns32 not_needed;
 
-  int16 status;
-  uns32 not_needed;
+	FILE *data;
+	struct timeval tp1;
+	int16 param;
 
-  FILE *data;
-  struct timeval  tp1;
-  int16 param;
-
-  m_thread.sendCmd(CameraThread::StartAcq);
-  m_thread.waitNotStatus(CameraThread::Ready);
-
-
-
+	m_thread.sendCmd(CameraThread::StartAcq);
+	m_thread.waitNotStatus(CameraThread::Ready);
 }
 
-
-void   Camera::stopAcq(){
-
-  DEB_MEMBER_FUNCT();
-  
-  // if(!cam_sim_mode){   
-    /* Finish the sequence */
-  
-  //    pl_exp_finish_seq( m_handle, m_frame, 0);
-    
-    /*Uninit the sequence */
-    
-  //    pl_exp_uninit_seq();
-    
-  //  }
-
-  m_thread.m_force_stop = true;
-
-/*
-  if( m_frame ) free( m_frame );
+//---------------------------------------------------------------------------------------
+//! Camera::stopAcq()
+//---------------------------------------------------------------------------------------
+void Camera::stopAcq()
+{
+	DEB_MEMBER_FUNCT();
+	
+	m_thread.m_force_stop = true;
+/*	
+	m_thread.sendCmd(CameraThread::StopAcq);
+	m_thread.waitStatus(CameraThread::Ready);
 */
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::reset()
+//---------------------------------------------------------------------------------------
 void Camera::reset()
 {
-  DEB_MEMBER_FUNCT();
-  //@todo maybe something to do!
+	DEB_MEMBER_FUNCT();
+	//@todo maybe something to do!
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::getExpTime()
+//---------------------------------------------------------------------------------------
+void Camera::getExpTime(double& exp_time)
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getExpTime";	
+	//	AutoMutex aLock(m_cond.mutex());
+	exp_time = m_exposure/1E6;//the lima standrad unit is second AND default detector unit is fixed to microsec
+	DEB_RETURN() << DEB_VAR1(exp_time);
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::setExpTime()
+//---------------------------------------------------------------------------------------
+void Camera::setExpTime(double  exp_time)
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setExpTime - "<<DEB_VAR1(exp_time);		
+	
+	m_exposure = exp_time*1E6;//default detector unit is microsec	
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getGain()
+//---------------------------------------------------------------------------------------
+long Camera::getGain()
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getGain";	
+	int16 param;
+
+	if(pl_get_param(m_handle, PARAM_GAIN_INDEX, ATTR_CURRENT, (void *) &param)==PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
+
+	DEB_RETURN() << DEB_VAR1(param);
+	return param;
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::setGain()
+//---------------------------------------------------------------------------------------
+void Camera::setGain(long gain)
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setGain - "<<DEB_VAR1(gain);	
+
+	int16 param;
+
+	param = (int16) gain;
+
+	if(pl_set_param(m_handle, PARAM_GAIN_INDEX, (void *) &param)==PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::setTrigMode()
+//---------------------------------------------------------------------------------------
+void Camera::setTrigMode(TrigMode  mode)
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setTrigMode - "<<DEB_VAR1(mode);		
+	DEB_PARAM() << DEB_VAR1(mode);
+	switch (mode)
+	{
+		case IntTrig:
+			m_trigger_mode = TIMED_MODE; 				// 0 (int. trigger)
+		break;
+		case ExtTrigSingle:
+			m_trigger_mode = TRIGGER_FIRST_MODE; 		// 3  (ext. trigger)
+		break;
+		case ExtTrigMult:
+			m_trigger_mode = STROBED_MODE; 				// 1 STROBED_MODE (ext. trigger)
+		break;
+		case ExtGate:
+			m_trigger_mode = BULB_MODE; 				// 2  (ext. trigger)
+		break;
+	}
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::setTrigMode()
+//---------------------------------------------------------------------------------------
+void Camera::getTrigMode(TrigMode& mode)
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getTrigMode";		
+	switch (m_trigger_mode)
+	{
+		case TIMED_MODE:
+			mode = IntTrig;
+		break;
+	
+		case TRIGGER_FIRST_MODE:
+			mode = ExtTrigSingle;
+		break;
+	
+		case STROBED_MODE:
+			mode = ExtTrigMult;
+		break;
+	
+		case BULB_MODE:
+			mode = ExtGate;
+		break;
+	}
+	DEB_RETURN() << DEB_VAR1(mode);	
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getTemperature()
+//---------------------------------------------------------------------------------------
+float Camera::getTemperature()
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getTemperature";	
+	int16 param;
+	float temperature;
+
+	if(pl_get_param(m_handle, PARAM_TEMP, ATTR_CURRENT, (void *) &param)==PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}	
+	
+	temperature = param / 100;
+
+	DEB_RETURN() << DEB_VAR1(temperature);
+
+	return temperature;
+
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getTemperatureSetPoint()
+//---------------------------------------------------------------------------------------
+float Camera::getTemperatureSetPoint()
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getTemperatureSetPoint";	
+	int16 param;
+	float temperature;
+
+	if(pl_get_param(m_handle, PARAM_TEMP_SETPOINT, ATTR_CURRENT, (void *) &param)==PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}	
+	temperature = param / 100;
+
+	DEB_RETURN() << DEB_VAR1(temperature);
+	return temperature;
+
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::setTemperatureSetPoint()
+//---------------------------------------------------------------------------------------
+void Camera::setTemperatureSetPoint(float temperature)
+{
+
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setTemperatureSetPoint - "<<DEB_VAR1(temperature);	
+
+	int16 param;
+	param = (int16)(temperature * 100);
+	
+	if(pl_set_param(m_handle, PARAM_TEMP_SETPOINT, (void *) &param)==PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}	
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getInternalAcqMode()
+//---------------------------------------------------------------------------------------
+std::string Camera::getInternalAcqMode()
+{
+
+	DEB_MEMBER_FUNCT();
+
+	if (m_int_acq_mode == 0)
+	{
+		DEB_RETURN() << DEB_VAR1("STANDARD");
+		return "STANDARD";
+	}
+	else if (m_int_acq_mode == 1)
+	{
+		DEB_RETURN() << DEB_VAR1("CONTINUOUS");
+		return "CONTINUOUS";
+	}
+	else if (m_int_acq_mode == 2)
+	{
+		DEB_RETURN() << DEB_VAR1("FOCUS");
+		return "FOCUS";
+	}
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::setInternalAcqMode()
+//---------------------------------------------------------------------------------------
+void Camera::setInternalAcqMode(std::string mode)
+{
+
+	DEB_MEMBER_FUNCT();
+	DEB_PARAM() << DEB_VAR1(mode);
+
+	if (mode.compare("STANDARD") == 0)
+	{
+		m_int_acq_mode = 0;
+	}
+	else if (mode.compare("CONTINUOUS") == 0)
+	{
+		m_int_acq_mode = 1;
+	}
+	else if (mode.compare("FOCUS") == 0)
+	{
+		m_int_acq_mode = 2;
+	}
+	else
+	{
+		m_int_acq_mode = 0;
+	}
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getMaxWidth()
+//---------------------------------------------------------------------------------------
+uns16 Camera::getMaxWidth()
+{
+	DEB_MEMBER_FUNCT();
+
+	DEB_RETURN() << DEB_VAR1(m_max_width);
+
+	return m_max_width;
+
+}
+	
+//---------------------------------------------------------------------------------------
+//! Camera::getMaxHeight()
+//---------------------------------------------------------------------------------------
+uns16 Camera::getMaxHeight()
+{
+
+	DEB_MEMBER_FUNCT();
+
+	DEB_RETURN() << DEB_VAR1(m_max_height);
+
+	return m_max_height;
+
+}
 
 //-----------------------------------------------------
 //
 //-----------------------------------------------------
-double Camera::exposure() const
+void Camera::setImageType(ImageType type)
 {
-  DEB_MEMBER_FUNCT();
-  DEB_RETURN() << DEB_VAR1(m_exposure);
-  //	AutoMutex aLock(m_cond.mutex());
-  return m_exposure;
+    DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setImageType - "<<DEB_VAR1(type);		
+	//Only 16 bits princeton detector are already managed !
+	switch( type )
+	{              
+		case Bpp16:
+			m_depth = 16;
+		break;
+		default:
+			THROW_HW_ERROR(Error) << "Cannot change the pixel format of the camera !";
+		break;
+	}
 }
 
-
-void Camera::setExposure(double val)
+//---------------------------------------------------------------------------------------
+//! Camera::getImageType()
+//---------------------------------------------------------------------------------------
+void Camera::getImageType(ImageType& type)
 {
-
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(val);
-
-  m_exposure = val;
-
+    DEB_MEMBER_FUNCT();	
+	switch(m_depth)
+	{		
+		case 16 : type  = Bpp16;
+		break;
+		default:
+			THROW_HW_ERROR(Error) << "This pixel format of the camera is not managed, only 16 bits cameras are already managed!";
+		break;				
+	}
+	return;
 }
 
-long Camera::getGain()
+//---------------------------------------------------------------------------------------
+//! Camera::setBinRoiParameters()
+//---------------------------------------------------------------------------------------
+void Camera::setBinRoiParameters(rgn_type* roi)
 {
-  
-  DEB_MEMBER_FUNCT();
-
-  int16 param;
-
-  if(!cam_sim_mode){
-    if(!m_camera_busy){
-      pl_get_param( m_handle, PARAM_GAIN_INDEX, ATTR_CURRENT, (void *)&param );
-    }
-  } else {
-    param = 1;
-  }
-
-  DEB_RETURN() << DEB_VAR1(param);
-  return param;
-}
-
-void Camera::setGain(long gain)
-{
-
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(gain);
-
-  int16 param;
-  
-  param = (int16)gain;
-
-  if(!cam_sim_mode){
-    if(!m_camera_busy){
-      pl_set_param(m_handle, PARAM_GAIN_INDEX, (void *)&param ); 
-    }
-  }
-}
-
-void Camera::get_camera_error()
-{
- 
-  DEB_MEMBER_FUNCT();
-
-  int16 i;
-    
-  //  char msg[200];
-  
-  if(!m_camera_busy){ 
-    i = pl_error_code();
-    m_error_code = i;
-    //   pl_error_message( i, msg );
-
-    //    pl_error_message( i, m_error_msg );
-  }
-}      
-
-void Camera::setFullFrame( rgn_type* roi ) {
-  uns16 param; 
-
-  DEB_MEMBER_FUNCT();
-
-  roi->s1 = 0;
-  pl_get_param( m_handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *)&param );
-  roi->s2 = param-1;
-  roi->sbin = 1;
-  roi->p1 = 0;
-  pl_get_param( m_handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&param );
-  roi->p2 = param-1;
-  roi->pbin = 1;
-}
-  
-void Camera::setROI( rgn_type* roi) { 
-  DEB_MEMBER_FUNCT();
-
-  roi->s1 = m_roi_s1;
-  roi->s2 = m_roi_s2;
-  roi->sbin = m_roi_sbin;
-  roi->p1 = m_roi_p1;
-  roi->p2 = m_roi_p2;
-  roi->pbin = m_roi_pbin;
-}
-
-
-void Camera::setTrigMode(int mode)
-{
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(mode);
-  
-  m_trigger_mode = mode;
-
-}
-
-int Camera::getTrigMode()
-{
-  DEB_MEMBER_FUNCT();  
-  DEB_RETURN() << DEB_VAR1(m_trigger_mode);
-
-  return m_trigger_mode;
-
-}
-
-float  Camera::getTemperature()
-{
-  DEB_MEMBER_FUNCT();
-
-  int16 param;
-  float temp;
-
-  if(!cam_sim_mode){
-    if(!m_camera_busy){
-      pl_get_param(m_handle, PARAM_TEMP, ATTR_CURRENT, (void *)&param );
-      temp = param/100; 
-    }
-  } else {
-    temp = 25.;
-  }
-  
-  DEB_RETURN() << DEB_VAR1(temp);
-
-  return temp;
-
-}
-
-float  Camera::getTemperatureSetPoint()
-{
-  DEB_MEMBER_FUNCT();
-
-  int16 param;
-  float temp;
-
-  if(!cam_sim_mode){
-    if(!m_camera_busy){
-      pl_get_param(m_handle, PARAM_TEMP_SETPOINT, ATTR_CURRENT, (void *)&param);
-      temp = param/100; 
-    }
-  } else {
-    temp = 25.;
-  }
-  
-  DEB_RETURN() << DEB_VAR1(temp);
-
-  return temp;
-
-}
-
-void  Camera::setTemperatureSetPoint(float temp)
-{  
-
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(temp);
-
-  int16 param;
-
-  if(!cam_sim_mode){
-    if(!m_camera_busy){
-      param = (int16) (temp*100);
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setBinRoiParameters";	
+	roi->s1 = m_roi_s1;
+	roi->s2 = m_roi_s2;
+	roi->sbin = m_roi_sbin;
+	roi->p1 = m_roi_p1;
+	roi->p2 = m_roi_p2;
+	roi->pbin = m_roi_pbin;
 	
-      pl_set_param(m_handle, PARAM_TEMP_SETPOINT, (void *)&param );  
-    }
-  }
+	DEB_TRACE() << DEB_VAR1(roi->s1);
+	DEB_TRACE() << DEB_VAR1(roi->s2);
+	DEB_TRACE() << DEB_VAR1(roi->sbin);
+	DEB_TRACE() << DEB_VAR1(roi->p1);
+	DEB_TRACE() << DEB_VAR1(roi->p2);
+	DEB_TRACE() << DEB_VAR1(roi->pbin);
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::setFullFrame()
+//---------------------------------------------------------------------------------------
+void Camera::setFullFrame(rgn_type* roi)
+{
+	uns16 param;
 
-std::string Camera::getInternalAcqMode(){
-
-  DEB_MEMBER_FUNCT();
-
-  if(m_int_acq_mode == 0){
-    DEB_RETURN() << DEB_VAR1("STANDARD");
-    return "STANDARD";
-  } else if(m_int_acq_mode == 1){
-    DEB_RETURN() << DEB_VAR1("CONTINUOUS");
-    return "CONTINUOUS";
-  } else if(m_int_acq_mode == 2){
-    DEB_RETURN() << DEB_VAR1("FOCUS");
-    return "FOCUS";
-  }
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setFullFrame";	
+	roi->s1 = 0;
+	pl_get_param(m_handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *) &param);
+	roi->s2 = param - 1;
+	roi->sbin = 1;
+	roi->p1 = 0;
+	pl_get_param(m_handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *) &param);
+	roi->p2 = param - 1;
+	roi->pbin = 1;
 }
 
-void  Camera::setInternalAcqMode(std::string mode){
-
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(mode);
-
-  if(mode.compare("STANDARD") == 0){
-    m_int_acq_mode = 0;
-  } else if (mode.compare("CONTINUOUS") == 0){
-    m_int_acq_mode = 1;
-  } else if (mode.compare("FOCUS") == 0){
-    m_int_acq_mode = 2;
-  } else {
-    m_int_acq_mode = 0;
-  } 
-}
-    
-uns16 Camera::getMaxWidth(){
- 
-  uns16   width;
-  
-  DEB_MEMBER_FUNCT();
-  if(!cam_sim_mode){  
-    pl_get_param( m_handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *)&width ); 
-  } else {
-    width = 1024;
-  }
-
-  DEB_RETURN() << DEB_VAR1(width);
-    
-  m_max_width = width;
-
-  return width;
-
-}
-
-uns16 Camera::getMaxHeight(){
- 
-  uns16   height;
-
-  DEB_MEMBER_FUNCT();
-  if(!cam_sim_mode){  
-    pl_get_param( m_handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *)&height ); 
-  } else {
-    height = 1024;
-  }
-
-  DEB_RETURN() << DEB_VAR1(height);
-      
-  m_max_height = height;
-  
-  return height;
-
-}
-
-int  Camera::getUseFullFrame(){
-
-  DEB_MEMBER_FUNCT();
-  DEB_RETURN() << DEB_VAR1(m_use_full_frame);
-
-  return m_use_full_frame;
-
-}
-
-void Camera::setUseFullFrame(int val){
-
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(val);
-
-  m_use_full_frame = val;
-
-}
-
-
+//---------------------------------------------------------------------------------------
+//! Camera::setBin()
+//---------------------------------------------------------------------------------------
 void Camera::setBin(const Bin& bin)
 {
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(bin);
-
-  m_roi_sbin = bin.getX();
-  m_roi_pbin = bin.getY();
-
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setBin";	
+	DEB_PARAM() << DEB_VAR1(bin);
+	
+	m_roi_sbin = bin.getX();
+	m_roi_pbin = bin.getY();
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::getBin()
+//---------------------------------------------------------------------------------------
 void Camera::getBin(Bin& bin)
 {
 
-  DEB_MEMBER_FUNCT();
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getBin";	
+	Bin tmp_bin(m_roi_sbin, m_roi_pbin);
+	bin = tmp_bin;
 
-  Bin tmp_bin(m_roi_sbin,m_roi_pbin);
-
-  bin = tmp_bin;
- 
-  DEB_RETURN() << DEB_VAR1(bin);
+	DEB_RETURN() << DEB_VAR1(bin);	
 }
 
+//---------------------------------------------------------------------------------------
+//! Camera::checkBin()
+//---------------------------------------------------------------------------------------
 void Camera::checkBin(Bin& bin)
 {
-  
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(bin);
-  printf("Teresa: Camera::checkBin \n");
+
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::checkBin";	
+	DEB_PARAM() << DEB_VAR1(bin);
 }
 
-void Camera::getRoi( Roi &roi ) const
+//-----------------------------------------------------
+//
+//-----------------------------------------------------
+void Camera::checkRoi(const Roi& set_roi, Roi& hw_roi)
+{
+    DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::checkRoi";	
+    DEB_PARAM() << DEB_VAR1(set_roi);
+    hw_roi = set_roi;
+
+    DEB_RETURN() << DEB_VAR1(hw_roi);
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getRoi()
+//---------------------------------------------------------------------------------------
+void Camera::getRoi(Roi& hw_roi)
 {
 
-  DEB_MEMBER_FUNCT();
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getRoi";	
+	Point point1(m_roi_s1, m_roi_p1);
+	Point point2(m_roi_s2, m_roi_p2);
+	Roi tmp_roi(point1, point2);
 
-  Point point1(m_roi_s1,m_roi_p1);
-  Point point2(m_roi_s2,m_roi_p2);
-  Roi tmp_roi(point1,point2);
+	hw_roi = tmp_roi;
 
-  roi = tmp_roi;
-
-  DEB_RETURN() << DEB_VAR1(roi);
+	DEB_RETURN() << DEB_VAR1(hw_roi);
 }
 
-void Camera::setRoi( const Roi &roi )
-{  
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(roi);
-
-  if(!roi.isActive())
-    m_use_full_frame = true;
-  else{
-    Point tmp_top = roi.getTopLeft();
-    
-    m_roi_s1 = tmp_top.x;
-    m_roi_p1 = tmp_top.y;
-    
-    Point tmp_bottom = roi.getBottomRight();
-    
-    m_roi_s2 = tmp_bottom.x;
-    m_roi_p2 = tmp_bottom.y;
-  }
-}
-
-void Camera::checkRoi( const Roi &set_roi,Roi &hw_roi ) const
+//---------------------------------------------------------------------------------------
+//! Camera::setRoi()
+//---------------------------------------------------------------------------------------
+void Camera::setRoi(const Roi& set_roi)
 {
-  
-  DEB_MEMBER_FUNCT();
-  DEB_PARAM() << DEB_VAR1(set_roi);
-  hw_roi = set_roi;
-  
-  DEB_RETURN() << DEB_VAR1(hw_roi);
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setRoi";		
+	DEB_PARAM() << DEB_VAR1(set_roi);
+	if (!set_roi.isActive())
+	{
+		DEB_TRACE()<<"Roi is not Enabled";				
+	}
+	else
+	{
+		//To avoid a double binning, API pvcam apply Roi & Binning together AND Lima Too !		
+		Bin aBin;
+		getBin(aBin);
+		Roi UnbinnedRoi = set_roi.getUnbinned(aBin);
+		Point tmp_top = UnbinnedRoi.getTopLeft();
+		////
+		
+		m_roi_s1 = tmp_top.x;
+		m_roi_p1 = tmp_top.y;
+
+		Point tmp_bottom = UnbinnedRoi.getBottomRight();
+
+		m_roi_s2 = tmp_bottom.x;
+		m_roi_p2 = tmp_bottom.y;
+	}	
 }
+
+
+//---------------------------------------------------------------------------------------
