@@ -48,14 +48,19 @@ public:
 
 	HwBufferCtrlObj* getBufferCtrlObj() { return &m_buffer_ctrl_obj; };
 
-	float getTemperature();
-	float getTemperatureSetPoint();
-	void setTemperatureSetPoint(float temperature);
+	double 	getTemperature();
+	double 	getTemperatureSetPoint();
+	void	setTemperatureSetPoint(double temperature);
 
     //-- Synch control object
     void setTrigMode(TrigMode  mode);
     void getTrigMode(TrigMode& mode);
 
+	//-- Shutter managment : TODO Shutter control object
+    //---------------------------------------------------------------------------------------
+	void setShutterMode(int mode);
+    void getShutterMode(int& mode);
+	
 	std::string getInternalAcqMode();
 	void setInternalAcqMode(std::string mode);
 
@@ -130,7 +135,8 @@ private:
 	uns32 m_size;
 
 	int m_trigger_mode;
-	int m_int_acq_mode;
+	int m_shutter_mode;
+	int m_int_acq_mode;	
 
 	uns16 m_max_width;
 	uns16 m_max_height;
@@ -140,8 +146,8 @@ private:
 	unsigned short *m_pr_buffer;
 	
 	/* main acquisition thread*/
-	CameraThread m_thread;
-	int m_acq_frame_nb;
+	CameraThread 	m_thread;
+	int 			m_acq_frame_nb;
 	
 };
 }

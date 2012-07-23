@@ -92,7 +92,7 @@ void Camera::CameraThread::execStartAcq()
 
 	int nb_frames = m_cam->m_nb_frames;
 	int& frame_nb = m_cam->m_acq_frame_nb;
-	int buffer_nb, concat_frame_nb;
+
 	m_cam->m_acq_frame_nb = 0;
 	
 	acq_frame_nb = 0;
@@ -198,6 +198,8 @@ void Camera::CameraThread::execStartAcq()
 		ForceTheStop:
 		if (m_force_stop)
 		{
+			//abort the current acqusition et set internal driver state to IDLE
+			pl_exp_abort(m_cam->m_handle,CCS_HALT);
 			continueAcq = false;
 			m_force_stop = false;
 			setStatus(Ready);
@@ -220,6 +222,7 @@ void Camera::CameraThread::execStartAcq()
 		acq_frame_nb++;
 		nb_frames--;
 		m_cam->m_acq_frame_nb = acq_frame_nb;	
+		
 	} /* End while */
 
 	DEB_TRACE()<<"Stop the sequence according to acquisition mode.";
@@ -284,12 +287,11 @@ Camera::Camera(int camNum):
 	m_nb_frames(1),
 	m_exposure(1.0),
 	m_trigger_mode(TIMED_MODE),
+	m_shutter_mode(OPEN_NEVER),
 	m_int_acq_mode(0)
 {
 	DEB_CONSTRUCTOR();
 	DEB_TRACE()<<"Camera::Camera";
-	int16 param;
-	float tmp_temp;
 		
 	/*close pvcam library in case of !! */
 	DEB_TRACE()<<"close pvcam library in case of !";		
@@ -359,6 +361,15 @@ Camera::Camera(int camNum):
 		THROW_HW_ERROR(Error) << Err;
 	}
 
+	/* Get shutter mode */
+	DEB_TRACE()<<"Get shutter mode.";
+	if(pl_get_param(m_handle, PARAM_SHTR_OPEN_MODE, ATTR_CURRENT, (void *) &m_shutter_mode)==PV_FAIL)
+	{
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+	}	
+	
 	m_thread.start();
 }
 
@@ -511,7 +522,7 @@ void Camera::prepareAcq()
 	if (m_int_acq_mode != 0)
 	{
 		DEB_TRACE()<<"Allocate a circular buffer.";	
-		m_pr_buffer = new unsigned short[(m_size/2)*3]; // set up a circular buffer of 3 frames. we need a nb of pixels => factor (1/2)
+		m_pr_buffer = new unsigned short[(m_size/2)*3]; // set up a circular buffer of 5 frames. we need a nb of pixels => factor (1/2)
 		pl_exp_start_cont(m_handle, m_pr_buffer, m_size);
 	}
 	
@@ -519,6 +530,7 @@ void Camera::prepareAcq()
 	{
 		DEB_TRACE() << "Allocate Memory for the Frame.";
 		m_frame = new unsigned short[(m_size/2)]; // we need a nb of pixels => factor (1/2)
+		memset((unsigned short*)m_frame, 0, (m_size/2));
 	}
 	catch (std::exception& e)
 	{
@@ -537,13 +549,6 @@ void Camera::startAcq()
 	m_thread.m_force_stop = false;
 	m_acq_frame_nb = 0;
 
-	int16 status;
-	uns32 not_needed;
-
-	FILE *data;
-	struct timeval tp1;
-	int16 param;
-
 	m_thread.sendCmd(CameraThread::StartAcq);
 	m_thread.waitNotStatus(CameraThread::Ready);
 }
@@ -556,10 +561,10 @@ void Camera::stopAcq()
 	DEB_MEMBER_FUNCT();
 	
 	m_thread.m_force_stop = true;
-/*	
+	
 	m_thread.sendCmd(CameraThread::StopAcq);
 	m_thread.waitStatus(CameraThread::Ready);
-*/
+
 }
 
 //---------------------------------------------------------------------------------------
@@ -647,14 +652,21 @@ void Camera::setTrigMode(TrigMode  mode)
 		case IntTrig:
 			m_trigger_mode = TIMED_MODE; 				// 0 (int. trigger)
 		break;
-		case ExtTrigSingle:
-			m_trigger_mode = TRIGGER_FIRST_MODE; 		// 3  (ext. trigger)
-		break;
+
 		case ExtTrigMult:
 			m_trigger_mode = STROBED_MODE; 				// 1 STROBED_MODE (ext. trigger)
 		break;
+
+		case ExtTrigSingle:
+			//m_trigger_mode = TRIGGER_FIRST_MODE; 		// 3  (ext. trigger)
+			THROW_HW_ERROR(Error) << "Cannot change the Trigger Mode of the camera, this mode is not managed !";
+			break;
 		case ExtGate:
-			m_trigger_mode = BULB_MODE; 				// 2  (ext. trigger)
+			//m_trigger_mode = BULB_MODE; 				// 2  (ext. trigger)
+			THROW_HW_ERROR(Error) << "Cannot change the Trigger Mode of the camera, this mode is not managed !";
+			break;
+		default :
+			THROW_HW_ERROR(Error) << "Cannot change the Trigger Mode of the camera, this mode is not managed !";
 		break;
 	}
 }
@@ -665,7 +677,7 @@ void Camera::setTrigMode(TrigMode  mode)
 void Camera::getTrigMode(TrigMode& mode)
 {
 	DEB_MEMBER_FUNCT();
-	DEB_TRACE()<<"Camera::getTrigMode";		
+	//DEB_TRACE()<<"Camera::getTrigMode";		
 	switch (m_trigger_mode)
 	{
 		case TIMED_MODE:
@@ -688,14 +700,57 @@ void Camera::getTrigMode(TrigMode& mode)
 }
 
 //---------------------------------------------------------------------------------------
-//! Camera::getTemperature()
+//! Camera::setShutterMode()
 //---------------------------------------------------------------------------------------
-float Camera::getTemperature()
+void Camera::setShutterMode(int mode)
 {
 	DEB_MEMBER_FUNCT();
-	DEB_TRACE()<<"Camera::getTemperature";	
+	DEB_TRACE()<<"Camera::setShutterMode - "<<DEB_VAR1(mode);		
+	DEB_PARAM() << DEB_VAR1(mode);
+	switch (mode)
+	{
+		case OPEN_NEVER:
+		case OPEN_PRE_EXPOSURE:
+		case OPEN_PRE_TRIGGER:
+		case OPEN_PRE_SEQUENCE:		
+		case OPEN_NO_CHANGE:		
+			// configure shutter mode	
+			if(pl_set_param(m_handle, PARAM_SHTR_OPEN_MODE, &mode)==PV_FAIL)
+			{
+				char Err[ERROR_MSG_LEN];
+				pl_error_message(pl_error_code(), Err);
+				THROW_HW_ERROR(Error) << Err;
+			}			
+			//Only if everything is OK
+			m_shutter_mode = mode;
+		break;
+		default:
+			THROW_HW_ERROR(Error) << "Cannot change the Shutter Mode of the camera, this mode is not managed !";
+		break;
+	}
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getShutterMode()
+//---------------------------------------------------------------------------------------
+void Camera::getShutterMode(int& mode)
+{
+	DEB_MEMBER_FUNCT();
+	//DEB_TRACE()<<"Camera::getShutterMode";		
+	mode = m_shutter_mode;
+	DEB_RETURN() << DEB_VAR1(mode);	
+}
+
+
+//---------------------------------------------------------------------------------------
+//! Camera::getTemperature()
+//---------------------------------------------------------------------------------------
+double Camera::getTemperature()
+{
+	DEB_MEMBER_FUNCT();
+	//DEB_TRACE()<<"Camera::getTemperature";	
 	int16 param;
-	float temperature;
+	double temperature;
 
 	if(pl_get_param(m_handle, PARAM_TEMP, ATTR_CURRENT, (void *) &param)==PV_FAIL)
 	{
@@ -715,12 +770,12 @@ float Camera::getTemperature()
 //---------------------------------------------------------------------------------------
 //! Camera::getTemperatureSetPoint()
 //---------------------------------------------------------------------------------------
-float Camera::getTemperatureSetPoint()
+double Camera::getTemperatureSetPoint()
 {
 	DEB_MEMBER_FUNCT();
-	DEB_TRACE()<<"Camera::getTemperatureSetPoint";	
+	//DEB_TRACE()<<"Camera::getTemperatureSetPoint";	
 	int16 param;
-	float temperature;
+	double temperature;
 
 	if(pl_get_param(m_handle, PARAM_TEMP_SETPOINT, ATTR_CURRENT, (void *) &param)==PV_FAIL)
 	{
@@ -738,11 +793,11 @@ float Camera::getTemperatureSetPoint()
 //---------------------------------------------------------------------------------------
 //! Camera::setTemperatureSetPoint()
 //---------------------------------------------------------------------------------------
-void Camera::setTemperatureSetPoint(float temperature)
+void Camera::setTemperatureSetPoint(double temperature)
 {
 
 	DEB_MEMBER_FUNCT();
-	DEB_TRACE()<<"Camera::setTemperatureSetPoint - "<<DEB_VAR1(temperature);	
+	DEB_TRACE()<<"Camera::setTemperatureSetPoint - "<<DEB_VAR1(temperature);
 
 	int16 param;
 	param = (int16)(temperature * 100);
@@ -762,22 +817,23 @@ std::string Camera::getInternalAcqMode()
 {
 
 	DEB_MEMBER_FUNCT();
-
+	std::string mode = "UNKNOWN";
 	if (m_int_acq_mode == 0)
 	{
 		DEB_RETURN() << DEB_VAR1("STANDARD");
-		return "STANDARD";
+		mode = "STANDARD";
 	}
 	else if (m_int_acq_mode == 1)
 	{
 		DEB_RETURN() << DEB_VAR1("CONTINUOUS");
-		return "CONTINUOUS";
+		mode = "CONTINUOUS";
 	}
 	else if (m_int_acq_mode == 2)
 	{
 		DEB_RETURN() << DEB_VAR1("FOCUS");
-		return "FOCUS";
+		mode = "FOCUS";
 	}
+	return mode;
 }
 
 //---------------------------------------------------------------------------------------
@@ -803,7 +859,7 @@ void Camera::setInternalAcqMode(std::string mode)
 	}
 	else
 	{
-		m_int_acq_mode = 0;
+		THROW_HW_ERROR(Error) << "Incorrect Internal Acquisition mode !";
 	}
 }
 
@@ -848,7 +904,7 @@ void Camera::setImageType(ImageType type)
 			m_depth = 16;
 		break;
 		default:
-			THROW_HW_ERROR(Error) << "Cannot change the pixel format of the camera !";
+			THROW_HW_ERROR(Error) << "This pixel format of the camera is not managed, only 16 bits cameras are already managed!";
 		break;
 	}
 }
