@@ -1,10 +1,10 @@
 #ifndef ROPERSCIENTIFICROICTRLOBJ_H
 #define ROPERSCIENTIFICROICTRLOBJ_H
 
-#include "RoperScientific.h"
-
-#include "HwInterface.h"
 #include "Debug.h"
+#include "RoperScientific.h"
+#include "RoperScientificCompatibility.h"
+#include "HwInterface.h"
 #include "RoperScientificCamera.h"
 
 namespace lima
@@ -18,7 +18,7 @@ namespace lima
      * \brief Control object providing Basler Roi interface
      *******************************************************************/
 
-    class RoiCtrlObj : public HwRoiCtrlObj
+    class LIBROPERSCIENTIFIC_API RoiCtrlObj : public HwRoiCtrlObj
     {
     	DEB_CLASS_NAMESPC(DebModCamera, "RoiCtrlObj", "RoperScientific");
 
