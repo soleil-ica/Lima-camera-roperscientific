@@ -1,7 +1,9 @@
 #ifndef ROPERSCIENTIFICCAMERA_H
 #define ROPERSCIENTIFICCAMERA_H
-#include "RoperScientific.h"
+
 #include "Debug.h"
+#include "RoperScientific.h"
+#include "RoperScientificCompatibility.h"
 #include "Constants.h"
 #include "HwBufferMgr.h"
 #include "ThreadUtils.h"
@@ -11,7 +13,7 @@ namespace lima
 namespace RoperScientific
 {
 //    class Camera
-class Camera
+class LIBROPERSCIENTIFIC_API Camera
 {
 	DEB_CLASS_NAMESPC(DebModCamera,"Camera","RoperScientific");
 	friend class Interface;

@@ -1,10 +1,10 @@
 #ifndef ROPERSCIENTIFICBINCTRLOBJ_H
 #define ROPERSCIENTIFICBINCTRLOBJ_H
 
-#include "RoperScientific.h"
-
-#include "HwInterface.h"
 #include "Debug.h"
+#include "RoperScientific.h"
+#include "RoperScientificCompatibility.h"
+#include "HwInterface.h"
 #include "RoperScientificCamera.h"
 
 namespace lima
@@ -16,7 +16,7 @@ namespace lima
      * \class BinCtrlObj
      * \brief Control object providing Basler Bin interface
      *******************************************************************/
-    class BinCtrlObj : public HwBinCtrlObj
+    class LIBROPERSCIENTIFIC_API BinCtrlObj : public HwBinCtrlObj
     {
     	DEB_CLASS_NAMESPC(DebModCamera, "BinCtrlObj", "RoperScientific"); 
     public:

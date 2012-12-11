@@ -1,5 +1,6 @@
-#include "RoperScientificRoiCtrlObj.h"
 #include "RoperScientificCamera.h"
+#include "RoperScientificRoiCtrlObj.h"
+
 
 using namespace lima;
 using namespace lima::RoperScientific;

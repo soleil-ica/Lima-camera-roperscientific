@@ -1,9 +1,11 @@
 #ifndef ROPERSCIENTIFICINTERFACE_H
 #define ROPERSCIENTIFICINTERFACE_H
 
+#include "Debug.h"
+#include "RoperScientificCompatibility.h"
 #include "HwInterface.h"
 #include "HwBufferMgr.h"
-#include "Debug.h"
+
 
 using namespace std;
 
@@ -21,7 +23,7 @@ class RoiCtrlObj;
  * \brief RoperScientific hardware interface
  *******************************************************************/
 
-class Interface: public HwInterface
+class LIBROPERSCIENTIFIC_API Interface: public HwInterface
 {
 DEB_CLASS_NAMESPC(DebModCamera, "RoperScientificInterface", "RoperScientific");
 
