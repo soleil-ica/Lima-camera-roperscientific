@@ -1,11 +1,11 @@
 #ifndef ROPERSCIENTIFICSYNCCTRLOBJ_H
 #define ROPERSCIENTIFICSYNCCTRLOBJ_H
 
+#include "Debug.h"
 #include "RoperScientific.h"
-
+#include "RoperScientificCompatibility.h"
 #include "HwSyncCtrlObj.h"
 #include "HwInterface.h"
-#include "Debug.h"
 
 namespace lima
 {
@@ -18,7 +18,7 @@ namespace lima
      * \brief Control object providing RoperScientific synchronization interface
      *******************************************************************/
 
-    class SyncCtrlObj: public HwSyncCtrlObj
+    class LIBROPERSCIENTIFIC_API SyncCtrlObj: public HwSyncCtrlObj
     {
     DEB_CLASS_NAMESPC(DebModCamera, "SyncCtrlObj", "RoperScientific");
 

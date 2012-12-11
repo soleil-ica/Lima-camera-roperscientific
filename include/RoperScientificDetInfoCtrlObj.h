@@ -1,19 +1,22 @@
 #ifndef ROPERSCIENTIFICDETINFOCTRLOBJ_H
 #define ROPERSCIENTIFICDETINFOCTRLOBJ_H
 
-#include "RoperScientific.h"
-#include "HwDetInfoCtrlObj.h"
 #include "Debug.h"
+#include "RoperScientific.h"
+#include "RoperScientificCompatibility.h"
+#include "HwDetInfoCtrlObj.h"
+
 
 namespace lima {
 namespace RoperScientific {
+
 class Camera;
 /*******************************************************************
  * \class DetInfoCtrlObj
  * \brief Control object providing RoperScientific detector info interface
  *******************************************************************/
 
-class DetInfoCtrlObj: public HwDetInfoCtrlObj {
+class LIBROPERSCIENTIFIC_API DetInfoCtrlObj: public HwDetInfoCtrlObj {
 	DEB_CLASS_NAMESPC(DebModCamera, "DetInfoCtrlObj", "RoperScientific");
 
 public:
