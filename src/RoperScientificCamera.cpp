@@ -288,11 +288,23 @@ Camera::Camera(int camNum):
 	m_exposure(1.0),
 	m_trigger_mode(TIMED_MODE),
 	m_shutter_mode(OPEN_NEVER),
-	m_int_acq_mode(0)
+	m_int_acq_mode(0),
+	m_adc_rate("")
 {
 	DEB_CONSTRUCTOR();
 	DEB_TRACE()<<"Camera::Camera";
-		
+
+    union
+    {
+        flt64 dval;
+        uns32 ulval;
+        int32 lval;
+        uns16 usval;
+        int16 sval;
+        uns8 ubval;
+        int8 bval;
+    } currentVal;
+
 	/*close pvcam library in case of !! */
 	DEB_TRACE()<<"close pvcam library in case of !";		
 	pl_pvcam_uninit();
@@ -369,6 +381,21 @@ Camera::Camera(int camNum):
 		pl_error_message(pl_error_code(), Err);
 		THROW_HW_ERROR(Error) << Err;
 	}	
+
+    // read pixel time:
+    if (pl_get_param(m_handle, PARAM_PIX_TIME, ATTR_CURRENT,(void *) &currentVal.usval)==PV_FAIL)
+    {
+        /* error occurred calling function print out error label */
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+    }
+    long pixelTime = currentVal.usval;
+    
+	//refresh m_adc_rate
+    std::ostringstream osRate;
+    osRate << "Rate = "<<1000.0/pixelTime << " MHz ";//rate = (1000/pixelTime) is in MHz
+	m_adc_rate = osRate.str();
 	
 	m_thread.start();
 }
@@ -697,6 +724,98 @@ void Camera::getTrigMode(TrigMode& mode)
 		break;
 	}
 	DEB_RETURN() << DEB_VAR1(mode);	
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getADCRate()
+//---------------------------------------------------------------------------------------
+const std::string& Camera::getADCRate(void)
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getADCRate";	
+
+    return m_adc_rate;
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::getSpeedTableIndex()
+//---------------------------------------------------------------------------------------
+unsigned Camera::getSpeedTableIndex(void)
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::getSpeedTableIndex";	
+    
+	uns16 tableIndex = 0;
+
+	//read the current tableIndex
+    if (pl_get_param(m_handle, PARAM_SPDTAB_INDEX, ATTR_CURRENT, &tableIndex)==PV_FAIL)
+    {
+        /* error occurred calling function print out error label */
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+    }
+    return tableIndex;
+}
+
+//---------------------------------------------------------------------------------------
+//! Camera::setSpeedTableIndex()
+//---------------------------------------------------------------------------------------
+void Camera::setSpeedTableIndex(unsigned idx)
+{
+	DEB_MEMBER_FUNCT();
+	DEB_TRACE()<<"Camera::setSpeedTableIndex - "<<DEB_VAR1(idx);	
+    union
+    {
+        flt64 dval;
+        uns32 ulval;
+        int32 lval;
+        uns16 usval;
+        int16 sval;
+        uns8 ubval;
+        int8 bval;
+    } currentVal;
+
+	int16 tableIndex;
+    int16 spdTableMaxIndex;
+    if (pl_get_param(m_handle, PARAM_SPDTAB_INDEX, ATTR_MAX, &spdTableMaxIndex) == PV_FAIL)
+    {
+        /* error occurred calling function print out error label */
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+    }
+
+    //Only if mode is <= Speed Table Max Index, otherwise ERROR
+    if (idx<=spdTableMaxIndex)
+    {
+        if (pl_set_param(m_handle, PARAM_SPDTAB_INDEX, &idx)==PV_FAIL)
+        {
+            char Err[ERROR_MSG_LEN];
+            pl_error_message(pl_error_code(), Err);
+            THROW_HW_ERROR(Error) << Err;            
+        }
+    }
+    else
+    {
+        THROW_HW_ERROR(Error) << "Cannot change the Speed Table Index of the camera, inexistant index = "<<idx;        
+    }
+
+    // read pixel time:
+    if (pl_get_param(m_handle, PARAM_PIX_TIME, ATTR_CURRENT,(void *) &currentVal.usval)==PV_FAIL)
+    {
+        /* error occurred calling function print out error label */
+		char Err[ERROR_MSG_LEN];
+		pl_error_message(pl_error_code(), Err);
+		THROW_HW_ERROR(Error) << Err;
+    }
+    long pixelTime = currentVal.usval;
+    
+	//refresh m_adc_rate
+    std::ostringstream osRate;
+    osRate << "Rate = "<<1000.0/pixelTime << " MHz ";//rate = (1000/pixelTime) is in MHz
+	m_adc_rate = osRate.str();
+    return;
 }
 
 //---------------------------------------------------------------------------------------
