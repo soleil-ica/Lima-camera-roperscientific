@@ -50,6 +50,10 @@ public:
 
 	HwBufferCtrlObj* getBufferCtrlObj() { return &m_buffer_ctrl_obj; };
 
+    void setSpeedTableIndex(unsigned);
+    unsigned getSpeedTableIndex(void);
+	const std::string& getADCRate(void);
+
 	double 	getTemperature();
 	double 	getTemperatureSetPoint();
 	void	setTemperatureSetPoint(double temperature);
@@ -143,6 +147,8 @@ private:
 	uns16 m_max_width;
 	uns16 m_max_height;
 	uns16 m_depth;
+
+	std::string m_adc_rate;
 	
 	unsigned short *m_frame;
 	unsigned short *m_pr_buffer;
