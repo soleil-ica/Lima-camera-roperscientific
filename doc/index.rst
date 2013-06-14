@@ -1,7 +1,7 @@
 RoperScientific
 ---------------
 
-.. image:: roper-logo.gif
+.. image:: roper-logo.png
 
 Intoduction
 ```````````
