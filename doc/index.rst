@@ -1,12 +1,16 @@
-RoperScientific
+RoperScientific / Princeton
 ---------------
 
-.. image:: roper-logo.gif
+.. image:: Roper-Scientific.jpg
+
+.. image:: PIMAX4_camera_front_back_500.png
 
 Intoduction
 ```````````
 
-Server for the control of a Roper Scientific camera using the pvcam libraries.
+This plugin control a RoperScientific/Princeton camera under windows and linux, using the PVCAM (Photometrics Virtual Camera Access Method) libraries.
+
+It is in production at Soleil under windows and it has been tested at Desy under linux .
 
 Module configuration
 ````````````````````
@@ -31,7 +35,9 @@ The minimum configuration file is *config.inc* :
 
 Installation
 ````````````
-
+TODO
 
 Configuration
 `````````````
+
+TODO
