@@ -239,13 +239,6 @@ ForceTheStop:
 	DEB_TRACE() << "CameraThread::execStartAcq - END";
 }
 
-//---------------------------------------------------------------------------------------
-//! Camera::CameraThread::getNbAcquiredFrames()
-//---------------------------------------------------------------------------------------
-int Camera::CameraThread::getNbAcquiredFrames()
-{
-	return m_cam->m_acq_frame_nb;
-}
 
 //---------------------------------------------------------------------------------------
 //! Camera::Camera()
@@ -404,7 +397,7 @@ void Camera::getDetectorModel(std::string& model)
 }
 
 //---------------------------------------------------------------------------------------
-//! Camera::CameraThread::getNbAcquiredFrames()
+//! Camera::getNbAcquiredFrames()
 //---------------------------------------------------------------------------------------
 int Camera::getNbAcquiredFrames()
 {

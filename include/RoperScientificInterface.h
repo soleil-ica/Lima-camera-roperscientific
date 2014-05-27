@@ -38,7 +38,6 @@ public:
 	virtual void startAcq();
 	virtual void stopAcq();
 	virtual void getStatus(StatusType& status);
-	virtual int getNbAcquiredFrames();
 	virtual int getNbHwAcquiredFrames();
 	
     //! get the camera object to access it directly from client
