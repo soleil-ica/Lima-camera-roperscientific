@@ -105,8 +105,6 @@ private:
 		CameraThread(Camera& cam);
 
 		virtual void start();
-
-		int getNbAcquiredFrames();
 		bool m_force_stop;
 
 	protected:
