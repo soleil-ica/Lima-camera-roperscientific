@@ -1,3 +1,5 @@
+.. _camera-roperscientific:
+
 RoperScientific / Princeton
 ---------------------------
 
