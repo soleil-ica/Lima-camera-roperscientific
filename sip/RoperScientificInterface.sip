@@ -6,7 +6,7 @@ namespace RoperScientific
 #include <RoperScientificInterface.h>
 %End
   public:
-    Interface(RoperScientific::Camera&);
+    Interface(RoperScientific::Camera& /KeepReference/);
     virtual ~Interface();
 
     virtual void getCapList(std::vector<HwCap> &cap_list /Out/) const;
