@@ -153,6 +153,9 @@ void Camera::CameraThread::execStartAcq()
 			pl_error_message(pl_error_code(), Err);
 			setStatus(Fault);
 			continueAcq = false;
+            std::string strErr = "Status is FAIL : ";
+            strErr+=Err;
+            DEB_TRACE()<<strErr;
 			THROW_HW_ERROR(Error) << Err;
 			break;
 		}
@@ -448,15 +451,15 @@ void Camera::prepareAcq()
 	/* Define circular buffer for acquisitions CONTINUOUS & FOCUS*/
 	if (m_int_acq_mode != 0)
 	{
-		DEB_TRACE() << "Allocate a circular buffer.";
-		m_pr_buffer = new unsigned short[(m_size / 2)*3]; // set up a circular buffer of 5 frames. we need a nb of pixels => factor (1/2)
+		DEB_TRACE() << "Allocate a circular buffer [size = "<<30<<"]";
+		m_pr_buffer = new unsigned short[(m_size / 2)*30]; // set up a circular buffer of 30 frames. we need a nb of pixels => factor (1/2)
 		pl_exp_start_cont(m_handle, m_pr_buffer, m_size);
 	}
 
 	try
 	{
-		DEB_TRACE() << "Allocate Memory for the Frame.";
-		m_frame = new unsigned short[(m_size / 2)]; // we need a nb of pixels => factor (1/2)
+		DEB_TRACE() << "Allocate Memory for the Frame [size = "<<1<<"]";
+		m_frame = new unsigned short[(m_size / 2)*1]; // we need a nb of pixels => factor (1/2)
 		memset((unsigned short*)m_frame, 0, (m_size / 2));
 	}
 	catch (std::exception& e)
