@@ -120,33 +120,22 @@ void Interface::getStatus(StatusType& status)
 
 	Camera::Status camera_status = m_cam.getStatus();
 	switch (camera_status)
-	{
-		case Camera::Ready:
-			status.acq = AcqReady;
-			status.det = DetIdle;
-		break;
-		case Camera::Exposure:
-			status.det = DetExposure;
-			goto Running;
-		case Camera::Readout:
-			status.det = DetReadout;
-			goto Running;
-		case Camera::Latency:
-			status.det = DetLatency;
-			Running: status.acq = AcqRunning;
-		break;
-	}
-	status.det_mask = DetExposure | DetReadout | DetLatency;
-}
-
-//-----------------------------------------------------
-//
-//-----------------------------------------------------
-int Interface::getNbAcquiredFrames()
-{
-	DEB_MEMBER_FUNCT();
-
-	return getNbHwAcquiredFrames();
+    {
+    case Camera::Ready:
+      status.set(HwInterface::StatusType::Ready);
+      break;
+    case Camera::Exposure:
+      status.set(HwInterface::StatusType::Exposure);
+      break;
+    case Camera::Readout:
+      status.set(HwInterface::StatusType::Readout);
+      break;
+    case Camera::Latency:
+      status.set(HwInterface::StatusType::Latency);
+      break;
+    case Camera::Fault:
+      status.set(HwInterface::StatusType::Fault);
+    }
 }
 
 //-----------------------------------------------------
