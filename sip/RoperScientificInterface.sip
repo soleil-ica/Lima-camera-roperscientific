@@ -17,7 +17,6 @@ namespace RoperScientific
     virtual void getStatus(StatusType& status /Out/);
 
     virtual int getNbHwAcquiredFrames();
-    virtual int getNbAcquiredFrames();
 
   };
 
