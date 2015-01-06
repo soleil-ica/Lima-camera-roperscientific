@@ -1,10 +1,10 @@
 #ifndef ROPERSCIENTIFICINTERFACE_H
 #define ROPERSCIENTIFICINTERFACE_H
 
-#include "Debug.h"
+#include "lima/Debug.h"
 #include "RoperScientificCompatibility.h"
-#include "HwInterface.h"
-#include "HwBufferMgr.h"
+#include "lima/HwInterface.h"
+#include "lima/HwBufferMgr.h"
 
 
 using namespace std;

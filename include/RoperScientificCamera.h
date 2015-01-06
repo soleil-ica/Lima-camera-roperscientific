@@ -1,12 +1,12 @@
 #ifndef ROPERSCIENTIFICCAMERA_H
 #define ROPERSCIENTIFICCAMERA_H
 
-#include "Debug.h"
+#include "lima/Debug.h"
 #include "RoperScientific.h"
 #include "RoperScientificCompatibility.h"
-#include "Constants.h"
-#include "HwBufferMgr.h"
-#include "ThreadUtils.h"
+#include "lima/Constants.h"
+#include "lima/HwBufferMgr.h"
+#include "lima/ThreadUtils.h"
 
 namespace lima
 {
