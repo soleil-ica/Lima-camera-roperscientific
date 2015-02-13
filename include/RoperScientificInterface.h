@@ -46,10 +46,10 @@ public:
 private:
 	Camera& m_cam;
 	CapList m_cap_list;
-	DetInfoCtrlObj m_det_info;
-	SyncCtrlObj m_sync;
-	BinCtrlObj m_bin;
-	RoiCtrlObj m_roi;
+	DetInfoCtrlObj* m_det_info;
+	SyncCtrlObj* m_sync;
+	BinCtrlObj* m_bin;
+	RoiCtrlObj* m_roi;
 };
 
 } // namespace RoperScientific

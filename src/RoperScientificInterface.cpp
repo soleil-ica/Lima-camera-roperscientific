@@ -18,28 +18,20 @@ using namespace std;
  *******************************************************************/
 
 Interface::Interface(Camera& cam) :
-		m_cam(cam), 
-		m_det_info(cam), 
-		m_sync(cam), 
-		m_bin(cam), 
-		m_roi(cam)
+		m_cam(cam)
 {
 	DEB_CONSTRUCTOR();
-
-	HwDetInfoCtrlObj *det_info = &m_det_info;
-	m_cap_list.push_back(HwCap(det_info));
-
+	m_det_info = new DetInfoCtrlObj(cam);
+	m_sync = new SyncCtrlObj(cam);
+	m_roi = new RoiCtrlObj(cam);
+	m_bin = new BinCtrlObj(cam);
 	HwBufferCtrlObj *buffer = cam.getBufferCtrlObj();
+
+	m_cap_list.push_back(HwCap(m_det_info));
 	m_cap_list.push_back(HwCap(buffer));
-
-	HwSyncCtrlObj *sync = &m_sync;
-	m_cap_list.push_back(HwCap(sync));
-
-	HwRoiCtrlObj *roi = &m_roi;
-	m_cap_list.push_back(HwCap(roi));
-	
-	HwBinCtrlObj *bin = &m_bin;
-	m_cap_list.push_back(HwCap(bin));
+	m_cap_list.push_back(HwCap(m_sync));
+	m_cap_list.push_back(HwCap(m_roi));
+	m_cap_list.push_back(HwCap(m_bin));
 
 }
 
@@ -71,9 +63,9 @@ void Interface::reset(ResetLevel reset_level)
 	stopAcq();
 
 	Size image_size;
-	m_det_info.getMaxImageSize(image_size);
+	m_det_info->getMaxImageSize(image_size);
 	ImageType image_type;
-	m_det_info.getDefImageType(image_type);
+	m_det_info->getDefImageType(image_type);
 	FrameDim frame_dim(image_size, image_type);
 
 	HwBufferCtrlObj *buffer = m_cam.getBufferCtrlObj();
