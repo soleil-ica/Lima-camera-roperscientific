@@ -1,7 +1,14 @@
-roperscientific-objs =  RoperScientificInterface.o RoperScientificCamera.o
+roperscientific-objs =  RoperScientificRoiCtrlObj.o \
+			RoperScientificSyncCtrlObj.o \
+			RoperScientificBinCtrlObj.o \
+			RoperScientificDetInfoCtrlObj.o \
+			RoperScientificInterface.o \
+			RoperScientificCamera.o
+
 SRCS = $(roperscientific-objs:.o=.cpp) 
 
 CXXFLAGS += -I../include -I../../../hardware/include -I../../../common/include \
+	-I../sdk/linux/include \
 	-pthread -fPIC -g 
 
 all:	RoperScientific.o

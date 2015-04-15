@@ -1,12 +1,12 @@
 #ifndef ROPERSCIENTIFICCAMERA_H
 #define ROPERSCIENTIFICCAMERA_H
 
-#include "Debug.h"
+#include "lima/Debug.h"
 #include "RoperScientific.h"
 #include "RoperScientificCompatibility.h"
-#include "Constants.h"
-#include "HwBufferMgr.h"
-#include "ThreadUtils.h"
+#include "lima/Constants.h"
+#include "lima/HwBufferMgr.h"
+#include "lima/ThreadUtils.h"
 
 namespace lima
 {
@@ -27,8 +27,8 @@ public:
 	Camera(int camNum = 0);
 	~Camera();
 
-    void getExpTime(double& exp_time);
-    void setExpTime(double  exp_time);
+	void getExpTime(double& exp_time);
+	void setExpTime(double  exp_time);
 
 	Status getStatus();
 	int  getNbAcquiredFrames();
@@ -46,26 +46,26 @@ public:
 	long getGain();
 
 	void setFullFrame(rgn_type* roi);
-    void setBinRoiParameters(rgn_type* roi);
+	void setBinRoiParameters(rgn_type* roi);
 
 	HwBufferCtrlObj* getBufferCtrlObj() { return &m_buffer_ctrl_obj; };
 
-    void setSpeedTableIndex(unsigned);
-    unsigned getSpeedTableIndex(void);
+	void setSpeedTableIndex(unsigned);
+	unsigned getSpeedTableIndex(void);
 	const std::string& getADCRate(void);
 
 	double 	getTemperature();
 	double 	getTemperatureSetPoint();
 	void	setTemperatureSetPoint(double temperature);
 
-    //-- Synch control object
-    void setTrigMode(TrigMode  mode);
-    void getTrigMode(TrigMode& mode);
+	//-- Synch control object
+	void setTrigMode(TrigMode  mode);
+	void getTrigMode(TrigMode& mode);
 
 	//-- Shutter managment : TODO Shutter control object
-    //---------------------------------------------------------------------------------------
+	//---------------------------------------------------------------------------------------
 	void setShutterMode(int mode);
-    void getShutterMode(int& mode);
+	void getShutterMode(int& mode);
 	
 	std::string getInternalAcqMode();
 	void setInternalAcqMode(std::string mode);
@@ -76,16 +76,13 @@ public:
 	void setImageType(ImageType type);
 	void getImageType(ImageType& type);
 	
-	int getUseFullFrame();
-	void setUseFullFrame(int val);
-
 	void setBin(const Bin& bin);
 	void getBin(Bin& bin);
 	void checkBin(Bin& bin);
 
-    void checkRoi(const Roi& set_roi, Roi& hw_roi);
-    void setRoi(const Roi& set_roi);
-    void getRoi(Roi& hw_roi);   
+	void checkRoi(const Roi& set_roi, Roi& hw_roi);
+	void setRoi(const Roi& set_roi);
+	void getRoi(Roi& hw_roi);   
 
 private:
 	class CameraThread: public CmdThread

@@ -10,7 +10,7 @@
 #include <unistd.h>
 #endif
 
-#include "Exceptions.h"
+#include "lima/Exceptions.h"
 
 
 #include "RoperScientificCamera.h"

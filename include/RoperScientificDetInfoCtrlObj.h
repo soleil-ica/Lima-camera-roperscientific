@@ -1,10 +1,10 @@
 #ifndef ROPERSCIENTIFICDETINFOCTRLOBJ_H
 #define ROPERSCIENTIFICDETINFOCTRLOBJ_H
 
-#include "Debug.h"
+#include "lima/Debug.h"
 #include "RoperScientific.h"
 #include "RoperScientificCompatibility.h"
-#include "HwDetInfoCtrlObj.h"
+#include "lima/HwDetInfoCtrlObj.h"
 
 
 namespace lima {

@@ -1,10 +1,10 @@
 #ifndef ROPERSCIENTIFICINTERFACE_H
 #define ROPERSCIENTIFICINTERFACE_H
 
-#include "Debug.h"
+#include "lima/Debug.h"
 #include "RoperScientificCompatibility.h"
-#include "HwInterface.h"
-#include "HwBufferMgr.h"
+#include "lima/HwInterface.h"
+#include "lima/HwBufferMgr.h"
 
 
 using namespace std;
@@ -46,10 +46,10 @@ public:
 private:
 	Camera& m_cam;
 	CapList m_cap_list;
-	DetInfoCtrlObj m_det_info;
-	SyncCtrlObj m_sync;
-	BinCtrlObj m_bin;
-	RoiCtrlObj m_roi;
+	DetInfoCtrlObj* m_det_info;
+	SyncCtrlObj* m_sync;
+	BinCtrlObj* m_bin;
+	RoiCtrlObj* m_roi;
 };
 
 } // namespace RoperScientific

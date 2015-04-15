@@ -1,10 +1,10 @@
 #ifndef ROPERSCIENTIFICBINCTRLOBJ_H
 #define ROPERSCIENTIFICBINCTRLOBJ_H
 
-#include "Debug.h"
+#include "lima/Debug.h"
 #include "RoperScientific.h"
 #include "RoperScientificCompatibility.h"
-#include "HwInterface.h"
+#include "lima/HwInterface.h"
 #include "RoperScientificCamera.h"
 
 namespace lima
