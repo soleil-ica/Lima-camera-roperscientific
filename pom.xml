@@ -9,7 +9,7 @@
 	
     <groupId>fr.soleil.lib.Lima.Camera</groupId>
     <artifactId>LimaRoperScientific-${aol}-shared-${mode}</artifactId>
-    <version>1.3.4</version>
+    <version>1.3.5</version>
 
     <packaging>nar</packaging>
     <name>LimaRoperScientific</name>
@@ -25,8 +25,9 @@
         <dependency>
             <groupId>fr.soleil.lib</groupId>
             <artifactId>LimaCore-${aol}-shared-${mode}</artifactId>
-            <version>1.3.3</version>
+            <version>1.3.4</version>
         </dependency>
+        
         <dependency>
             <groupId>com.roperscientific</groupId>
             <artifactId>Pvcam-${aol}-static-${mode}</artifactId>
@@ -34,9 +35,15 @@
         </dependency>
 
         <dependency>
-          <groupId>fr.soleil.lib</groupId>
-          <artifactId>YAT-${aol}-static-${mode}</artifactId>
-          <version>1.9.6-vc9</version>
+            <groupId>fr.soleil.lib</groupId>
+            <artifactId>NexusCPP-${aol}-static-${mode}</artifactId>
+            <version>3.0.5-SNAPSHOT</version>
+        </dependency>
+				
+        <dependency>
+            <groupId>fr.soleil.lib</groupId>
+            <artifactId>YAT-${aol}-static-${mode}</artifactId>
+            <version>1.9.13-SNAPSHOT</version>
         </dependency>
     
         <dependency>
