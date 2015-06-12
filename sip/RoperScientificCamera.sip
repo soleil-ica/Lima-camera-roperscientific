@@ -22,6 +22,9 @@ namespace RoperScientific
     void      setGain(long);
     long      getGain();
 
+    void      setSpeedTableIndex(unsigned);
+    unsigned getSpeedTableIndex();
+    const std::string& getADCRate();
 
     float     getTemperature(); 
     float     getTemperatureSetPoint();
