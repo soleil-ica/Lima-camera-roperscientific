@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h> 
 #include <netdb.h>
+//added by Aitor in order to make work usleep() under linux
+#include <unistd.h>
 #else
 #include <winsock2.h>
 #include <unistd.h>
