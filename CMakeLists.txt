@@ -78,7 +78,7 @@ else()
 	target_link_libraries(lima${NAME} raw1394 pvcam)
 endif()
 
-include(CameraVERSION)
+limatools_set_library_soversion(lima${NAME} "VERSION")
 if(WIN32)
     set_target_properties(lima${NAME} PROPERTIES PREFIX "lib")
     install(TARGETS lima${NAME} DESTINATION lib)
@@ -88,6 +88,6 @@ endif()
 
 
 if(LIMA_ENABLE_PYTHON)
-    include(CameraRunSIP)
+    limatools_run_sip_for_camera(${NAME})
     install(FILES python/__init__.py DESTINATION "${PYTHON_SITE_PACKAGES_DIR}/Lima/RoperScientific")
 endif()
