@@ -42,7 +42,7 @@ set(${NAME}_srcs src/RoperScientificRoiCtrlObj.cpp src/RoperScientificSyncCtrlOb
 add_library(lima${NAME} SHARED ${${NAME}_srcs})
 
 #INCLUDEs
-target_include_directories(lima${NAME} PUBLIC "${ROPER_SDK_DIRECTORY}")
+target_include_directories(lima${NAME} PUBLIC "${ROPER_SDK_DIRECTORY}/include")
 target_include_directories(lima${NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 if(WIN32)
