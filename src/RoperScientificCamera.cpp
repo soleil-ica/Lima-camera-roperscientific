@@ -874,17 +874,17 @@ void Camera::setBinRoiParameters(rgn_type* roi)
 {
 	DEB_MEMBER_FUNCT();
 	DEB_TRACE() << "Camera::setBinRoiParameters";
-	roi->s1 = m_roi_s1;
+	roi->s1 = m_roi_s1;	
 	roi->s2 = m_roi_s2;
 	roi->sbin = m_roi_sbin;
-	roi->p1 = m_roi_p1;
+	roi->p1 = m_roi_p1;	
 	roi->p2 = m_roi_p2;
 	roi->pbin = m_roi_pbin;
 
 	DEB_TRACE() << DEB_VAR1(roi->s1);
 	DEB_TRACE() << DEB_VAR1(roi->s2);
 	DEB_TRACE() << DEB_VAR1(roi->sbin);
-	DEB_TRACE() << DEB_VAR1(roi->p1);
+	DEB_TRACE() << DEB_VAR1(roi->p1);	
 	DEB_TRACE() << DEB_VAR1(roi->p2);
 	DEB_TRACE() << DEB_VAR1(roi->pbin);
 }
@@ -900,11 +900,12 @@ void Camera::setFullFrame(rgn_type* roi)
 	DEB_TRACE() << "Camera::setFullFrame";
 	roi->s1 = 0;
 	pl_get_param(m_handle, PARAM_SER_SIZE, ATTR_DEFAULT, (void *) &param);
-	roi->s2 = param - 1;
+	roi->s2 = param - 1;//param is a size, but we need a pixel coordinates in s2, then (-1)
 	roi->sbin = 1;
-	roi->p1 = 0;
+	
+	roi->p1 = 0;	
 	pl_get_param(m_handle, PARAM_PAR_SIZE, ATTR_DEFAULT, (void *) &param);
-	roi->p2 = param - 1;
+	roi->p2 = param - 1;//param is a size, but we need a pixel coordinates in p2, then (-1)
 	roi->pbin = 1;
 }
 
@@ -980,9 +981,15 @@ void Camera::setRoi(const Roi& set_roi)
 	DEB_MEMBER_FUNCT();
 	DEB_TRACE() << "Camera::setRoi";
 	DEB_PARAM() << DEB_VAR1(set_roi);
-	if (!set_roi.isActive())
+	
+	if (set_roi.isEmpty())
 	{
 		DEB_TRACE() << "Roi is not Enabled";
+		//set full frame, because it is a resetRoi()
+		m_roi_s1 = 0;
+		m_roi_p1 = 0;
+		m_roi_s2 = 2047;
+		m_roi_p2 = 2047;		
 	}
 	else
 	{
@@ -1000,6 +1007,8 @@ void Camera::setRoi(const Roi& set_roi)
 
 		m_roi_s2 = tmp_bottom.x;
 		m_roi_p2 = tmp_bottom.y;
+		
+		
 	}
 }
 
