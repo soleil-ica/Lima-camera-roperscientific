@@ -27,7 +27,7 @@ provide some important information about the developer's choices.
 
 Camera initialisation
 ......................
-- The camera will be initialized within the RoperScientificCamera object. One should pass to the RoperScientificCamera constructor, the Camera number as an int.
+The camera will be initialized within the RoperScientificCamera object. One should pass to the RoperScientificCamera constructor, the Camera number as an int.
 for exemple : 0
 
 Std capabilites
@@ -59,6 +59,25 @@ Optional capabilites
 	
 * HwRoi
 
+Specific control parameters
+.............................
+
+Some specific paramaters are available within the camera hardware interface. Those parameters should be used carefully and one should refer to the camera SDK (or user's guide) documentation for a better understanding.
+
+* getTemperature()
+
+* set/getTemperatureSetPoint()
+
+* set/getGain()
+
+* set/getInternalAcqMode()
+
+ - "FOCUS"
+ - "STANDARD"
+
+* set/getSpeedTableIndex()
+
+
 
 
 Configuration
@@ -85,3 +104,50 @@ here is the list of accessible fonctions to configure and use the RoperScientifi
 	double 	getTemperature();
 	double 	getTemperatureSetPoint();
 	void	setTemperatureSetPoint(double temperature);
+
+
+Code example in python:
+
+.. code-block:: python
+
+  from Lima import RoperScientific
+  from lima import Core
+
+  cam = RoperScientific.Camera(0)
+
+  hwint = RoperScientific.Interface(cam)
+  ct = Core.CtControl(hwint)
+
+  acq = ct.acquisition()
+
+  # set some configuration
+  cam.setTemperatureSetPoint(0)
+  cam.setAdcRate(0) # 0-1MHz, 1-100KHz
+
+
+  # setting new file parameters and autosaving mode
+  saving=ct.saving()
+
+  pars=saving.getParameters()
+  pars.directory='/buffer/lcb18012/opisg/test_lima'
+  pars.prefix='test1_'
+  pars.suffix='.edf'
+  pars.fileFormat=Core.CtSaving.EDF
+  pars.savingMode=Core.CtSaving.AutoFrame
+  saving.setParameters(pars)
+
+  # now ask for 2 sec. exposure and 10 frames
+  acq.setAcqExpoTime(2)
+  acq.setNbImages(10) 
+  
+  ct.prepareAcq()
+  ct.startAcq()
+
+  # wait for last image (#9) ready
+  lastimg = ct.getStatus().ImageCounters.LastImageReady
+  while lastimg !=9:
+    time.sleep(0.1)
+    lastimg = ct.getStatus().ImageCounters.LastImageReady
+ 
+  # read the first image
+  im0 = ct.ReadImage(0)
