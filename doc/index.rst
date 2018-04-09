@@ -7,33 +7,32 @@ RoperScientific / Princeton
 
 .. image:: PIMAX4_camera_front_back_500.png
 
-Intoduction
-```````````
+Introduction
+````````````
 
-This plugin control a RoperScientific/Princeton camera under windows and linux, using the PVCAM (Photometrics Virtual Camera Access Method) libraries.
+This plugin control a RoperScientific/Princeton camera under Windows and Linux, using the PVCAM (Photometrics Virtual Camera Access Method) libraries.
 
-It is in production at SOLEIL under windows and it has been tested at Desy under linux .
+It is in production at SOLEIL under windows and it has been tested at Desy under Linux.
 Model used at SOLEIL: PI-MTE:2048B
 
 Prerequisite
 ````````````
-The RoperScientific is connected to a specific computer with a PCI board
-the Lima/RoperScientific client has to Run on this PC
+The RoperScientific is connected to a specific computer with a PCI board. The Lima/RoperScientific client must run on this PC.
 
 Initialisation and Capabilities
-````````````````````````````````
-In order to help people to understand how the camera plugin has been implemented in LImA this section
-provide some important information about the developer's choices.
+```````````````````````````````
+
+Implementing a new plugin for new detector is driven by the LIMA framework but the developer has some freedoms to choose which standard and specific features will be made available. This section is supposed to give you the correct information regarding how the camera is exported within the LIMA framework.
 
 Camera initialisation
 ......................
-The camera will be initialized within the RoperScientificCamera object. One should pass to the RoperScientificCamera constructor, the Camera number as an int.
-for exemple : 0
+
+The camera will be initialized within the :cpp::class:`RoperScientific::Camera` object. The camera number (as an integer) should be given to the constructor. For example: 0.
 
 Std capabilites
 ................
 
-This plugin has been implemented in respect of the mandatory capabilites but with some limitations according 
+This plugin has been implemented in respect of the mandatory capabilites but with some limitations according
 to some programmer's  choices.  We only provide here extra information for a better understanding
 of the capabilities for the RoperScientific camera.
 
@@ -44,19 +43,21 @@ of the capabilities for the RoperScientific camera.
 
 * HwSync
 
-  trigger type supported are:
+  Trigger type supported are:
+
 	- IntTrig
 	- ExtTrigSingle
 	- ExtTrigMult
 	- ExtGate
-  
-  
+
+
 Optional capabilites
 ........................
 
-* HwBin
+* HwBin:
+
 	- all values are accepted
-	
+
 * HwRoi
 
 Specific control parameters
@@ -77,17 +78,15 @@ Some specific paramaters are available within the camera hardware interface. Tho
 
 * set/getSpeedTableIndex()
 
-
-
-
 Configuration
 `````````````
 
 No Specific hardware configuration are needed
 
 How to use
-````````````
-here is the list of accessible fonctions to configure and use the RoperScientific detector:
+``````````
+
+Here is the list of accessible fonctions to configure and use the RoperScientific detector:
 
 .. code-block:: cpp
 
@@ -138,8 +137,8 @@ Code example in python:
 
   # now ask for 2 sec. exposure and 10 frames
   acq.setAcqExpoTime(2)
-  acq.setNbImages(10) 
-  
+  acq.setNbImages(10)
+
   ct.prepareAcq()
   ct.startAcq()
 
@@ -148,6 +147,6 @@ Code example in python:
   while lastimg !=9:
     time.sleep(0.1)
     lastimg = ct.getStatus().ImageCounters.LastImageReady
- 
+
   # read the first image
   im0 = ct.ReadImage(0)
