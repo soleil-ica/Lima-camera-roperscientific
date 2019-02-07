@@ -32,6 +32,8 @@ namespace RoperScientific
 
     std::string  getInternalAcqMode();
     void         setInternalAcqMode(std::string );
-	
+    
+  private:
+    Camera(const RoperScientific::Camera&);
   };
 };
