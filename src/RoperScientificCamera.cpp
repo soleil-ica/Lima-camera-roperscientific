@@ -167,13 +167,21 @@ void Camera::CameraThread::execStartAcq()
 
 		// Get oldest frame in case of CONTINUOUS
 		if(m_cam->m_int_acq_mode == 1)
+		{
 			if (pl_exp_get_oldest_frame(m_cam->m_handle, &f_address))
-				m_cam->m_frame = (uns16*) f_address;
+			{
+				memcpy((unsigned short *)m_cam->m_frame, (unsigned short *)(uns16*) f_address, m_cam->m_size); //we need a nb of BYTES .				
+			}
+		}
 
 		// Get latest frame in case of FOCUS
 		if(m_cam->m_int_acq_mode == 2)
+		{
 			if (pl_exp_get_latest_frame(m_cam->m_handle, &f_address))
-				m_cam->m_frame = (uns16*) f_address;
+			{
+				memcpy((unsigned short *)m_cam->m_frame, (unsigned short *)(uns16*) f_address, m_cam->m_size); //we need a nb of BYTES .
+			}
+		}
 
 ForceTheStop:
 		if (m_force_stop)
@@ -333,8 +341,8 @@ Camera::~Camera()
 {
 	DEB_DESTRUCTOR();
 	DEB_TRACE() << "Camera::~Camera";
-	stopAcq();
-
+	////stopAcq();
+	m_thread.abort();
 	DEB_TRACE() << "Close communication with the camera.";
 	pl_cam_close(m_handle);
 	DEB_TRACE() << "close pvcam library.";
@@ -462,7 +470,7 @@ void Camera::prepareAcq()
 	{
 		DEB_TRACE() << "Allocate Memory for the Frame [size = "<<1<<"]";
 		m_frame = new unsigned short[(m_size / 2)*1]; // we need a nb of pixels => factor (1/2)
-		memset((unsigned short*)m_frame, 0, (m_size / 2));
+		memset((unsigned short*)m_frame, 0, (m_size /*/ 2*/));
 	}
 	catch (std::exception& e)
 	{
